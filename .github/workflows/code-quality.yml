@@ -1,0 +1,45 @@
+name: Code Quality
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+jobs:
+  format-test-tidy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-format clang-tidy ninja-build
+
+      - name: Verify clang-format
+        run: |
+          CHANGED=$(git ls-files '*.cpp' '*.hpp')
+          if [ -n "$CHANGED" ]; then
+            clang-format -i $CHANGED
+            if ! git diff --quiet; then
+              echo "Code is not clang-formatted. Please run clang-format."
+              git diff
+              exit 1
+            fi
+          fi
+
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -G Ninja
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Tests
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Clang-Tidy
+        run: cmake --build build --target clang-tidy
