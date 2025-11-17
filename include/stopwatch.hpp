@@ -19,7 +19,7 @@ class Stopwatch final
     time_point last_{};
     Duration total_{Duration::zero()};
 
-    Duration next_time()
+    Duration next_time() noexcept
     {
         if (!on_) {
             return Duration::zero();
@@ -47,7 +47,7 @@ public:
         }
     }
 
-    void start()
+    void start() noexcept
     {
         std::atomic_thread_fence(std::memory_order_acquire);
 
@@ -57,7 +57,7 @@ public:
         std::atomic_thread_fence(std::memory_order_release);
     }
 
-    void stop()
+    void stop() noexcept
     {
         if (on_) {
             next_time();

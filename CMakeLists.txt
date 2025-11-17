@@ -12,11 +12,23 @@ set(QUILL_BUILD_BENCHMARKS OFF CACHE BOOL "" FORCE)
 set(QUILL_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
 add_subdirectory(third_party/quill)
 
+add_library(parveb STATIC
+    src/veb_top_node.cpp
+    src/simd_utils.cpp
+)
+target_include_directories(parveb PUBLIC include)
+
+add_library(ankerl_headers INTERFACE)
+target_include_directories(ankerl_headers INTERFACE third_party/unordered_dense/include)
+
+add_library(absl_headers INTERFACE)
+target_include_directories(absl_headers INTERFACE third_party/abseil-cpp)
+
 enable_testing()
 
 add_executable(leaf64_test tests/leaf64_test.cpp)
 target_include_directories(leaf64_test PRIVATE include)
-target_link_libraries(leaf64_test PRIVATE gtest_main quill::quill)
+target_link_libraries(leaf64_test PRIVATE gtest_main parveb quill::quill)
 target_compile_definitions(leaf64_test PRIVATE QUILL_ROOT_LOGGER_ONLY)
 
 include(GoogleTest)
@@ -24,12 +36,17 @@ gtest_discover_tests(leaf64_test)
 
 add_executable(branch64_test tests/branch64_test.cpp)
 target_include_directories(branch64_test PRIVATE include)
-target_link_libraries(branch64_test PRIVATE gtest_main quill::quill)
+target_link_libraries(branch64_test PRIVATE gtest_main parveb quill::quill)
 target_compile_definitions(branch64_test PRIVATE QUILL_ROOT_LOGGER_ONLY)
 gtest_discover_tests(branch64_test)
 
 add_executable(veb40_test tests/veb40_test.cpp)
 target_include_directories(veb40_test PRIVATE include)
-target_link_libraries(veb40_test PRIVATE gtest_main quill::quill)
+target_link_libraries(veb40_test PRIVATE gtest_main parveb quill::quill)
 target_compile_definitions(veb40_test PRIVATE QUILL_ROOT_LOGGER_ONLY)
 gtest_discover_tests(veb40_test)
+
+add_executable(veb_benchmark src/veb_benchmark.cpp)
+target_include_directories(veb_benchmark PRIVATE include)
+target_link_libraries(veb_benchmark PRIVATE parveb quill::quill ankerl_headers absl_headers)
+target_compile_definitions(veb_benchmark PRIVATE QUILL_ROOT_LOGGER_ONLY)

@@ -5,6 +5,7 @@
 #include <cassert>
 #include <cstdint>
 #include <optional>
+#include <utility>
 
 class Leaf64 {
  public:
@@ -74,5 +75,15 @@ class Leaf64 {
       return std::nullopt;
     }
     return static_cast<unsigned>(63 - std::countl_zero(mask));
+  }
+
+  template <class Fn>
+  inline void for_each(uint64_t prefix, Fn&& fn) const {
+    uint64_t remaining = bits;
+    while (remaining) {
+      unsigned bit = std::countr_zero(remaining);
+      fn(prefix | bit);
+      remaining &= (remaining - 1);
+    }
   }
 };
