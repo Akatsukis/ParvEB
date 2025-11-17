@@ -4,8 +4,8 @@
 #include <cstdint>
 #include <limits>
 #include <optional>
-#include <vector>
 #include <utility>
+#include <vector>
 
 #include "veb_top_node.hpp"
 
@@ -13,8 +13,9 @@ template <class RootNode, unsigned EFFECTIVE_BITS>
 class VanEmdeBoasTree
 {
     static_assert(EFFECTIVE_BITS > 0, "EFFECTIVE_BITS must be > 0");
-    static_assert(RootNode::SUBTREE_BITS >= EFFECTIVE_BITS,
-                  "RootNode must cover at least EFFECTIVE_BITS bits");
+    static_assert(
+        RootNode::SUBTREE_BITS >= EFFECTIVE_BITS,
+        "RootNode must cover at least EFFECTIVE_BITS bits");
 
 public:
     using Key = uint64_t;
@@ -43,7 +44,8 @@ private:
 
 public:
     static constexpr Key MAX_KEY = compute_max_key();
-    static constexpr Key PREDECESSOR_QUERY_MAX = compute_predecessor_query_max();
+    static constexpr Key PREDECESSOR_QUERY_MAX =
+        compute_predecessor_query_max();
 
     bool empty() const noexcept
     {

@@ -5,17 +5,18 @@
 
 #include "simd_utils.hpp"
 
-namespace {
-
-constexpr uint64_t word_bit(unsigned idx)
+namespace
 {
-    return uint64_t(1) << (idx & (VebTopNode::WORD_SIZE - 1));
-}
 
-constexpr unsigned word_index(unsigned idx)
-{
-    return idx >> VebTopNode::WORD_BITS;
-}
+    constexpr uint64_t word_bit(unsigned idx)
+    {
+        return uint64_t(1) << (idx & (VebTopNode::WORD_SIZE - 1));
+    }
+
+    constexpr unsigned word_index(unsigned idx)
+    {
+        return idx >> VebTopNode::WORD_BITS;
+    }
 
 } // namespace
 
@@ -70,9 +71,10 @@ VebTopNode::Child &VebTopNode::ensure_child(unsigned idx)
     return *ptr;
 }
 
-std::optional<unsigned> VebTopNode::find_next_word(unsigned start_word) const noexcept
+std::optional<unsigned>
+VebTopNode::find_next_word(unsigned start_word) const noexcept
 {
-    auto span = std::span<const uint64_t>(occ_words_);
+    auto span = std::span<uint64_t const>(occ_words_);
     auto idx = simd::find_next_nonzero(span, start_word);
     if (!idx) {
         return std::nullopt;
@@ -80,9 +82,10 @@ std::optional<unsigned> VebTopNode::find_next_word(unsigned start_word) const no
     return static_cast<unsigned>(*idx);
 }
 
-std::optional<unsigned> VebTopNode::find_prev_word(unsigned start_word) const noexcept
+std::optional<unsigned>
+VebTopNode::find_prev_word(unsigned start_word) const noexcept
 {
-    auto span = std::span<const uint64_t>(occ_words_);
+    auto span = std::span<uint64_t const>(occ_words_);
     auto idx = simd::find_prev_nonzero(span, start_word);
     if (!idx) {
         return std::nullopt;
@@ -205,7 +208,8 @@ std::optional<VebTopNode::Key> VebTopNode::successor(Key key) const noexcept
         return std::nullopt;
     }
     uint64_t next_word_bits = occ_words_[*next_word];
-    unsigned next_hi = (*next_word << WORD_BITS) + std::countr_zero(next_word_bits);
+    unsigned next_hi =
+        (*next_word << WORD_BITS) + std::countr_zero(next_word_bits);
     Child const *c = get_child(next_hi);
     auto lo_min = c ? c->min() : std::nullopt;
     if (!lo_min) {
@@ -237,7 +241,8 @@ std::optional<VebTopNode::Key> VebTopNode::predecessor(Key key) const noexcept
     uint64_t mask = bit_index == 0 ? 0 : ((uint64_t(1) << bit_index) - 1);
     uint64_t word = occ_words_[word_idx] & mask;
     if (word) {
-        unsigned prev_hi = (word_idx << WORD_BITS) + (63u - std::countl_zero(word));
+        unsigned prev_hi =
+            (word_idx << WORD_BITS) + (63u - std::countl_zero(word));
         Child const *c = get_child(prev_hi);
         auto lo_max = c ? c->max() : std::nullopt;
         if (!lo_max) {
@@ -253,7 +258,8 @@ std::optional<VebTopNode::Key> VebTopNode::predecessor(Key key) const noexcept
         return std::nullopt;
     }
     uint64_t prev_bits = occ_words_[*prev_word];
-    unsigned prev_hi = (*prev_word << WORD_BITS) + (63u - std::countl_zero(prev_bits));
+    unsigned prev_hi =
+        (*prev_word << WORD_BITS) + (63u - std::countl_zero(prev_bits));
     Child const *c = get_child(prev_hi);
     auto lo_max = c ? c->max() : std::nullopt;
     if (!lo_max) {

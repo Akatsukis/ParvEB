@@ -5,6 +5,10 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+    add_compile_options(-Wno-tautological-compare)
+endif ()
+
 add_subdirectory(third_party/googletest)
 set(QUILL_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(QUILL_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
@@ -21,8 +25,8 @@ target_include_directories(parveb PUBLIC include)
 add_library(absl_headers INTERFACE)
 target_include_directories(absl_headers INTERFACE third_party/abseil-cpp)
 
-add_library(tsl_headers INTERFACE)
-target_include_directories(tsl_headers INTERFACE third_party/tsl_ordered_map/include)
+add_library(boost_headers INTERFACE)
+target_include_directories(boost_headers INTERFACE third_party/boost)
 
 enable_testing()
 
@@ -48,5 +52,5 @@ gtest_discover_tests(veb40_test)
 
 add_executable(veb_benchmark src/veb_benchmark.cpp)
 target_include_directories(veb_benchmark PRIVATE include)
-target_link_libraries(veb_benchmark PRIVATE parveb quill::quill absl_headers tsl_headers)
+target_link_libraries(veb_benchmark PRIVATE parveb quill::quill absl_headers boost_headers)
 target_compile_definitions(veb_benchmark PRIVATE QUILL_ROOT_LOGGER_ONLY)

@@ -42,7 +42,6 @@ public:
         : name_(std::move(name))
     {
         if (start_running) {
-            LOG_INFO("Starting stopwatch {}", name_);
             start();
         }
     }
@@ -69,7 +68,8 @@ public:
 
     void report(Duration elapsed, std::string_view msg = "") const
     {
-        auto const ns = std::chrono::duration_cast<std::chrono::nanoseconds>(elapsed);
+        auto const ns =
+            std::chrono::duration_cast<std::chrono::nanoseconds>(elapsed);
         if (ns >= std::chrono::seconds(100)) {
             LOG_INFO(
                 "Stopwatch {}: {} elapsed time: {}",

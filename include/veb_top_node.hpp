@@ -35,6 +35,7 @@ public:
     std::optional<Key> max() const noexcept;
     std::optional<Key> successor(Key key) const noexcept;
     std::optional<Key> predecessor(Key key) const noexcept;
+
     template <class Fn>
     void for_each(Fn &&fn) const
     {
