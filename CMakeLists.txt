@@ -18,11 +18,11 @@ add_library(parveb STATIC
 )
 target_include_directories(parveb PUBLIC include)
 
-add_library(ankerl_headers INTERFACE)
-target_include_directories(ankerl_headers INTERFACE third_party/unordered_dense/include)
-
 add_library(absl_headers INTERFACE)
 target_include_directories(absl_headers INTERFACE third_party/abseil-cpp)
+
+add_library(tsl_headers INTERFACE)
+target_include_directories(tsl_headers INTERFACE third_party/tsl_ordered_map/include)
 
 enable_testing()
 
@@ -48,5 +48,5 @@ gtest_discover_tests(veb40_test)
 
 add_executable(veb_benchmark src/veb_benchmark.cpp)
 target_include_directories(veb_benchmark PRIVATE include)
-target_link_libraries(veb_benchmark PRIVATE parveb quill::quill ankerl_headers absl_headers)
+target_link_libraries(veb_benchmark PRIVATE parveb quill::quill absl_headers tsl_headers)
 target_compile_definitions(veb_benchmark PRIVATE QUILL_ROOT_LOGGER_ONLY)
