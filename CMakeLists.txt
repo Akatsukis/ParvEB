@@ -25,8 +25,9 @@ target_include_directories(parveb PUBLIC include)
 add_library(absl_headers INTERFACE)
 target_include_directories(absl_headers INTERFACE third_party/abseil-cpp)
 
+find_package(Boost REQUIRED COMPONENTS container)
 add_library(boost_headers INTERFACE)
-target_include_directories(boost_headers INTERFACE third_party/boost)
+target_link_libraries(boost_headers INTERFACE Boost::container)
 
 enable_testing()
 
