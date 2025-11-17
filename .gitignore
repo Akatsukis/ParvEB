@@ -1,0 +1,24 @@
+# Build artifacts
+/build/
+CMakeCache.txt
+CMakeFiles/
+cmake-build-*/
+
+# Generated test results
+Testing/
+/CTestTestfile.cmake
+
+# Editor/project files
+*.swp
+*.swo
+.DS_Store
+.idea/
+.vscode/
+
+# Compiled objects
+*.o
+*.obj
+*.a
+*.so
+*.dll
+*.exe
