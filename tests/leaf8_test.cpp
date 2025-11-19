@@ -1,10 +1,10 @@
 #include <gtest/gtest.h>
 
-#include "veb_leaf64.hpp"
+#include "veb_leaf8.hpp"
 
-TEST(Leaf64Test, InsertUpdatesContains)
+TEST(Leaf8Test, InsertUpdatesContains)
 {
-    Leaf64 leaf;
+    VebLeaf8 leaf;
     EXPECT_TRUE(leaf.empty());
     leaf.insert(0);
     leaf.insert(5);
@@ -17,9 +17,9 @@ TEST(Leaf64Test, InsertUpdatesContains)
     EXPECT_FALSE(leaf.contains(7));
 }
 
-TEST(Leaf64Test, MinMaxTrackExtremes)
+TEST(Leaf8Test, MinMaxTrackExtremes)
 {
-    Leaf64 leaf;
+    VebLeaf8 leaf;
     leaf.insert(5);
     leaf.insert(1);
     leaf.insert(60);
@@ -30,9 +30,9 @@ TEST(Leaf64Test, MinMaxTrackExtremes)
     EXPECT_EQ(60u, *leaf.max());
 }
 
-TEST(Leaf64Test, EraseClearsStructure)
+TEST(Leaf8Test, EraseClearsStructure)
 {
-    Leaf64 leaf;
+    VebLeaf8 leaf;
     leaf.insert(0);
     leaf.insert(5);
     leaf.insert(63);
@@ -49,9 +49,9 @@ TEST(Leaf64Test, EraseClearsStructure)
     EXPECT_FALSE(leaf.max().has_value());
 }
 
-TEST(Leaf64Test, SuccessorReturnsNextHigherValue)
+TEST(Leaf8Test, SuccessorReturnsNextHigherValue)
 {
-    Leaf64 leaf;
+    VebLeaf8 leaf;
     leaf.insert(2);
     leaf.insert(10);
     leaf.insert(42);
@@ -62,9 +62,9 @@ TEST(Leaf64Test, SuccessorReturnsNextHigherValue)
     EXPECT_EQ(42u, *leaf.successor(10));
 }
 
-TEST(Leaf64Test, SuccessorReturnsNullWhenNoGreaterValue)
+TEST(Leaf8Test, SuccessorReturnsNullWhenNoGreaterValue)
 {
-    Leaf64 leaf;
+    VebLeaf8 leaf;
     leaf.insert(3);
     leaf.insert(9);
 
@@ -72,9 +72,9 @@ TEST(Leaf64Test, SuccessorReturnsNullWhenNoGreaterValue)
     EXPECT_FALSE(leaf.successor(63).has_value());
 }
 
-TEST(Leaf64Test, SuccessorReflectsLaterInsertions)
+TEST(Leaf8Test, SuccessorReflectsLaterInsertions)
 {
-    Leaf64 leaf;
+    VebLeaf8 leaf;
     leaf.insert(20);
     leaf.insert(50);
 
@@ -85,16 +85,16 @@ TEST(Leaf64Test, SuccessorReflectsLaterInsertions)
     EXPECT_EQ(60u, *leaf.successor(50));
 }
 
-TEST(Leaf64Test, PredecessorOfZeroHasNoValue)
+TEST(Leaf8Test, PredecessorOfZeroHasNoValue)
 {
-    Leaf64 leaf;
+    VebLeaf8 leaf;
     leaf.insert(7);
     EXPECT_FALSE(leaf.predecessor(0).has_value());
 }
 
-TEST(Leaf64Test, PredecessorReturnsLargestSmallerValue)
+TEST(Leaf8Test, PredecessorReturnsLargestSmallerValue)
 {
-    Leaf64 leaf;
+    VebLeaf8 leaf;
     leaf.insert(0);
     leaf.insert(8);
     leaf.insert(17);
@@ -105,13 +105,13 @@ TEST(Leaf64Test, PredecessorReturnsLargestSmallerValue)
     EXPECT_EQ(8u, *leaf.predecessor(17));
 }
 
-TEST(Leaf64Test, PredecessorTreats64AsInclusiveUpperBound)
+TEST(Leaf8Test, PredecessorTreats256AsInclusiveUpperBound)
 {
-    Leaf64 leaf;
+    VebLeaf8 leaf;
     leaf.insert(0);
     leaf.insert(17);
-    leaf.insert(63);
+    leaf.insert(255);
 
-    ASSERT_TRUE(leaf.predecessor(64).has_value());
-    EXPECT_EQ(63u, *leaf.predecessor(64));
+    ASSERT_TRUE(leaf.predecessor(256).has_value());
+    EXPECT_EQ(255u, *leaf.predecessor(256));
 }

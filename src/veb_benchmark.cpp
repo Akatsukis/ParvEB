@@ -16,13 +16,13 @@
 #include "quill/Quill.h"
 
 #include "stopwatch.hpp"
-#include "veb40.hpp"
+#include "veb32.hpp"
 
 namespace
 {
 
-    std::optional<uint64_t>
-    predecessor_from_set(std::set<uint64_t> const &data, uint64_t key)
+    std::optional<uint32_t>
+    predecessor_from_set(std::set<uint32_t> const &data, uint32_t key)
     {
         if (data.empty()) {
             return std::nullopt;
@@ -41,8 +41,8 @@ namespace
     }
 
     template <class Set>
-    std::optional<uint64_t>
-    successor_from_ordered(Set const &data, uint64_t key)
+    std::optional<uint32_t>
+    successor_from_ordered(Set const &data, uint32_t key)
     {
         auto it = data.upper_bound(key);
         if (it == data.end()) {
@@ -52,8 +52,8 @@ namespace
     }
 
     template <class Set>
-    std::optional<uint64_t>
-    predecessor_from_ordered(Set const &data, uint64_t key)
+    std::optional<uint32_t>
+    predecessor_from_ordered(Set const &data, uint32_t key)
     {
         if (data.empty()) {
             return std::nullopt;
@@ -71,14 +71,16 @@ namespace
         return *it;
     }
 
-    template <class Fn>
-    std::vector<std::optional<uint64_t>> collect_queries(
+    template <class QueryVec, class Fn>
+    auto collect_queries(
         Stopwatch<> &sw, std::string_view label,
-        std::vector<uint64_t> const &queries, Fn &&fn)
+        QueryVec const &queries, Fn &&fn)
+        -> std::vector<decltype(fn(queries[0]))>
     {
-        std::vector<std::optional<uint64_t>> results;
+        using Result = decltype(fn(queries[0]));
+        std::vector<Result> results;
         results.reserve(queries.size());
-        for (uint64_t key : queries) {
+        for (auto const &key : queries) {
             results.push_back(fn(key));
         }
         sw.next(label);
@@ -97,16 +99,18 @@ int main()
     LOG_INFO("=== vEB benchmark: {} inserts ===", kNumInserts);
 
     std::mt19937_64 rng(std::random_device{}());
-    std::uniform_int_distribution<uint64_t> value_dist(0, VebTree40::MAX_KEY);
-    std::uniform_int_distribution<uint64_t> succ_dist(0, VebTree40::MAX_KEY);
-    std::uniform_int_distribution<uint64_t> pred_dist(
-        0, VebTree40::PREDECESSOR_QUERY_MAX);
+    std::uniform_int_distribution<uint32_t> value_dist(
+        0, VebTree32::MAX_KEY);
+    std::uniform_int_distribution<uint32_t> succ_dist(
+        0, VebTree32::MAX_KEY);
+    std::uniform_int_distribution<uint32_t> pred_dist(
+        0, VebTree32::MAX_KEY);
 
-    std::vector<uint64_t> values;
+    std::vector<uint32_t> values;
     values.reserve(kNumInserts);
-    std::vector<uint64_t> successor_queries;
+    std::vector<uint32_t> successor_queries;
     successor_queries.reserve(kNumInserts);
-    std::vector<uint64_t> predecessor_queries;
+    std::vector<uint32_t> predecessor_queries;
     predecessor_queries.reserve(kNumInserts);
 
     Stopwatch<> data_sw("random data generation");
@@ -118,8 +122,7 @@ int main()
     data_sw.stop();
     data_sw.total_time();
 
-    auto assert_sorted = [](std::string_view,
-                            std::vector<uint64_t> const &data) {
+    auto assert_sorted = [](std::string_view, auto const &data) {
         assert(
             std::is_sorted(data.begin(), data.end()) && "data must be sorted");
     };
@@ -127,15 +130,15 @@ int main()
     // std::set baseline (also generates expected answers)
     LOG_INFO("--- std::set ---");
     Stopwatch<> std_sw("std::set");
-    std::set<uint64_t> std_set;
-    for (uint64_t value : values) {
+    std::set<uint32_t> std_set;
+    for (uint32_t value : values) {
         std_set.insert(value);
     }
     std_sw.next("insert");
-    std::vector<uint64_t> std_sorted(std_set.begin(), std_set.end());
+    std::vector<uint32_t> std_sorted(std_set.begin(), std_set.end());
     assert_sorted("std::set", std_sorted);
 
-    std::vector<std::optional<uint64_t>> expected_successors(
+    std::vector<std::optional<uint32_t>> expected_successors(
         successor_queries.size());
     for (std::size_t i = 0; i < successor_queries.size(); ++i) {
         expected_successors[i] =
@@ -143,7 +146,7 @@ int main()
     }
     std_sw.next("successor");
 
-    std::vector<std::optional<uint64_t>> expected_predecessors(
+    std::vector<std::optional<uint32_t>> expected_predecessors(
         predecessor_queries.size());
     for (std::size_t i = 0; i < predecessor_queries.size(); ++i) {
         expected_predecessors[i] =
@@ -155,20 +158,20 @@ int main()
     // vEB tree
     LOG_INFO("--- vEB ---");
     Stopwatch<> veb_sw("vEB");
-    VebTree40 tree;
-    for (uint64_t value : values) {
+    VebTree32 tree;
+    for (uint32_t value : values) {
         tree.insert(value);
     }
     veb_sw.next("insert");
-    std::vector<uint64_t> veb_sorted = tree.to_vector();
+    std::vector<uint32_t> veb_sorted = tree.to_vector();
     assert_sorted("vEB", veb_sorted);
     assert(veb_sorted == std_sorted);
     auto veb_successors = collect_queries(
-        veb_sw, "successor", successor_queries, [&](uint64_t key) {
+        veb_sw, "successor", successor_queries, [&](uint32_t key) {
             return tree.successor(key);
         });
     auto veb_predecessors = collect_queries(
-        veb_sw, "predecessor", predecessor_queries, [&](uint64_t key) {
+        veb_sw, "predecessor", predecessor_queries, [&](uint32_t key) {
             return tree.predecessor(key);
         });
     assert(veb_successors == expected_successors);
@@ -178,20 +181,20 @@ int main()
     // absl::btree_set
     LOG_INFO("--- absl::btree_set ---");
     Stopwatch<> absl_sw("absl::btree_set");
-    absl::btree_set<uint64_t> absl_set;
-    for (uint64_t value : values) {
+    absl::btree_set<uint32_t> absl_set;
+    for (uint32_t value : values) {
         absl_set.insert(value);
     }
     absl_sw.next("insert");
-    std::vector<uint64_t> absl_sorted(absl_set.begin(), absl_set.end());
+    std::vector<uint32_t> absl_sorted(absl_set.begin(), absl_set.end());
     assert_sorted("absl::btree_set", absl_sorted);
     assert(absl_sorted == std_sorted);
     auto absl_successors = collect_queries(
-        absl_sw, "successor", successor_queries, [&](uint64_t key) {
+        absl_sw, "successor", successor_queries, [&](uint32_t key) {
             return successor_from_ordered(absl_set, key);
         });
     auto absl_predecessors = collect_queries(
-        absl_sw, "predecessor", predecessor_queries, [&](uint64_t key) {
+        absl_sw, "predecessor", predecessor_queries, [&](uint32_t key) {
             return predecessor_from_ordered(absl_set, key);
         });
     assert(absl_successors == expected_successors);
@@ -201,20 +204,20 @@ int main()
     // boost::container::set
     LOG_INFO("--- boost::container::set ---");
     Stopwatch<> boost_sw("boost::container::set");
-    boost::container::set<uint64_t> boost_set;
-    for (uint64_t value : values) {
+    boost::container::set<uint32_t> boost_set;
+    for (uint32_t value : values) {
         boost_set.insert(value);
     }
     boost_sw.next("insert");
-    std::vector<uint64_t> boost_sorted(boost_set.begin(), boost_set.end());
+    std::vector<uint32_t> boost_sorted(boost_set.begin(), boost_set.end());
     assert_sorted("boost::container::set", boost_sorted);
     assert(boost_sorted == std_sorted);
     auto boost_successors = collect_queries(
-        boost_sw, "successor", successor_queries, [&](uint64_t key) {
+        boost_sw, "successor", successor_queries, [&](uint32_t key) {
             return successor_from_ordered(boost_set, key);
         });
     auto boost_predecessors = collect_queries(
-        boost_sw, "predecessor", predecessor_queries, [&](uint64_t key) {
+        boost_sw, "predecessor", predecessor_queries, [&](uint32_t key) {
             return predecessor_from_ordered(boost_set, key);
         });
     assert(boost_successors == expected_successors);
