@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+remote_name="${1:-origin}"
+remote_url="${2:-}"
+
+# Allow developers to skip the check when they know what they are doing.
+if [[ "${SKIP_CLANG_FORMAT:-0}" != "0" ]]; then
+  echo "Skipping clang-format check because SKIP_CLANG_FORMAT is set."
+  exit 0
+fi
+
+if ! command -v clang-format >/dev/null 2>&1; then
+  echo "Error: clang-format is not installed or not on PATH." >&2
+  echo "Install clang-format to run the style check before pushing." >&2
+  exit 1
+fi
+
+# The pre-push hook receives lines on stdin describing what is being pushed:
+#   <local ref> <local sha1> <remote ref> <remote sha1>
+# We diff each ref pair to find the tracked files that changed in the push.
+zero_commit="0000000000000000000000000000000000000000"
+empty_tree="$(git hash-object -t tree /dev/null)"
+declare -a candidate_files=()
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  # Skip deletion of refs (local_sha is zero) since there is no code to check.
+  if [[ -z "${local_sha}" || "${local_sha}" == "${zero_commit}" ]]; then
+    continue
+  fi
+
+  diff_base="${remote_sha}"
+  if [[ -z "${remote_sha}" || "${remote_sha}" == "${zero_commit}" ]]; then
+    diff_base="${empty_tree}"
+  fi
+
+  while IFS= read -r file; do
+    [[ -z "${file}" ]] && continue
+    candidate_files+=("${file}")
+  done < <(git diff --name-only --diff-filter=ACM "${diff_base}" "${local_sha}" -- \
+    '*.c' '*.cc' '*.cxx' '*.cpp' '*.h' '*.hh' '*.hpp' '*.hxx')
+done
+
+if [[ "${#candidate_files[@]}" -eq 0 ]]; then
+  exit 0
+fi
+
+declare -A seen=()
+declare -a files=()
+for path in "${candidate_files[@]}"; do
+  [[ -n "${seen["$path"]+yes}" ]] && continue
+  seen["$path"]=1
+
+  # Skip vendored code that we do not own.
+  case "${path}" in
+    third_party/*) continue ;;
+  esac
+
+  if [[ -f "${path}" ]]; then
+    files+=("${path}")
+  fi
+done
+
+if [[ "${#files[@]}" -eq 0 ]]; then
+  exit 0
+fi
+
+printf 'Running clang-format check on %s file(s)...\n' "${#files[@]}"
+
+if ! clang-format --dry-run -Werror "${files[@]}"; then
+  cat <<'EOF'
+clang-format found style issues in the files listed above.
+Run `scripts/format.sh` (or `clang-format -i <file>`) to fix the formatting before pushing.
+EOF
+  exit 1
+fi
+
+echo "clang-format check passed for ${#files[@]} file(s)."

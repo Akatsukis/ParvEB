@@ -5,6 +5,8 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+option(PARVEB_ENABLE_SIMD "Enable SIMD accelerated primitives" ON)
+
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     add_compile_options(-Wno-tautological-compare)
 endif ()
@@ -21,6 +23,11 @@ add_library(parveb STATIC
     src/simd_utils.cpp
 )
 target_include_directories(parveb PUBLIC include)
+if (PARVEB_ENABLE_SIMD)
+    target_compile_definitions(parveb PUBLIC PARVEB_ENABLE_SIMD=1)
+else ()
+    target_compile_definitions(parveb PUBLIC PARVEB_ENABLE_SIMD=0)
+endif ()
 
 add_library(absl_headers INTERFACE)
 target_include_directories(absl_headers INTERFACE third_party/abseil-cpp)

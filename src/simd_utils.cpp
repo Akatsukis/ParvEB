@@ -4,8 +4,12 @@
 #include <optional>
 #include <span>
 
-#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) ||             \
-    defined(_M_IX86)
+#ifndef PARVEB_ENABLE_SIMD
+    #define PARVEB_ENABLE_SIMD 1
+#endif
+
+#if PARVEB_ENABLE_SIMD && (defined(__x86_64__) || defined(_M_X64) ||           \
+                           defined(__i386__) || defined(_M_IX86))
     #define PARVEB_HAS_X86 1
     #include <immintrin.h>
 #else
@@ -229,8 +233,12 @@ namespace
 
     Mode runtime_mode() noexcept
     {
+#if PARVEB_ENABLE_SIMD
         static Mode mode = detect_mode();
         return mode;
+#else
+        return Mode::Scalar;
+#endif
     }
 
 } // namespace
