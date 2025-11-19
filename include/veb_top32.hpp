@@ -8,7 +8,14 @@
 #include <memory>
 #include <optional>
 
+#include "memory_pool.hpp"
 #include "veb_branch16.hpp"
+
+struct VebMemoryPools
+{
+    pool::ObjectPool<VebLeaf8> leaf_pool;
+    pool::ObjectPool<VebBranch16> branch_pool;
+};
 
 class VebTop32
 {
@@ -26,11 +33,20 @@ private:
 
     using Summary = VebBranch16;
     using DenseMask = veb_detail::DenseBitset<CLUSTER_BITS>;
+    using BranchPtr =
+        std::unique_ptr<VebBranch16, pool::PoolDeleter<VebBranch16>>;
 
     DenseMask inline_mask_{};
     std::array<uint16_t, CLUSTER_COUNT> inline_value_{};
-    std::array<std::unique_ptr<VebBranch16>, CLUSTER_COUNT> clusters_{};
-    std::unique_ptr<Summary> summary_{};
+    std::array<BranchPtr, CLUSTER_COUNT> clusters_{};
+    BranchPtr summary_{};
+    VebMemoryPools *pools_{nullptr};
+
+    static VebMemoryPools *default_pools()
+    {
+        static VebMemoryPools pools;
+        return &pools;
+    }
 
     [[nodiscard]] static Key combine(unsigned hi, uint16_t lo) noexcept
     {
@@ -40,7 +56,9 @@ private:
     [[nodiscard]] Summary &ensure_summary()
     {
         if (!summary_) {
-            summary_ = std::make_unique<Summary>();
+            assert(pools_ && "pools_ must be set");
+            summary_ =
+                pool::make_unique(pools_->branch_pool, &pools_->leaf_pool);
         }
         return *summary_;
     }
@@ -96,12 +114,20 @@ private:
     {
         auto &ptr = clusters_[idx];
         if (!ptr) {
-            ptr = std::make_unique<VebBranch16>();
+            assert(pools_ && "pools_ must be set");
+            ptr = pool::make_unique(
+                pools_->branch_pool, &pools_->leaf_pool);
         }
         return *ptr;
     }
 
 public:
+    VebTop32() : pools_(default_pools()) {}
+    explicit VebTop32(VebMemoryPools *pools)
+        : pools_(pools ? pools : default_pools())
+    {
+    }
+
     bool empty() const noexcept
     {
         return !summary_;

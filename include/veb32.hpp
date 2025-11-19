@@ -14,6 +14,25 @@ public:
     static constexpr uint64_t PREDECESSOR_QUERY_MAX =
         VebTop32::PREDECESSOR_QUERY_MAX;
 
+    VebTree32()
+        : pools_(std::make_shared<VebMemoryPools>()), root_(pools_.get())
+    {
+    }
+
+    explicit VebTree32(std::shared_ptr<VebMemoryPools> pools)
+        : pools_(std::move(pools)), root_(pools_ ? pools_.get() : nullptr)
+    {
+    }
+
+    void reserve(std::size_t branch_nodes, std::size_t leaf_nodes)
+    {
+        if (!pools_) {
+            return;
+        }
+        pools_->branch_pool.reserve(branch_nodes);
+        pools_->leaf_pool.reserve(leaf_nodes);
+    }
+
     bool empty() const noexcept
     {
         return root_.empty();
@@ -69,5 +88,6 @@ public:
     }
 
 private:
-    VebTop32 root_{};
+    std::shared_ptr<VebMemoryPools> pools_;
+    VebTop32 root_;
 };

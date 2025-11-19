@@ -5,6 +5,9 @@
 #include <cassert>
 #include <cstdint>
 #include <optional>
+#include <span>
+
+#include "simd_utils.hpp"
 
 class VebLeaf8
 {
@@ -49,6 +52,32 @@ private:
         return Key(base + (63u - std::countl_zero(word)));
     }
 
+    [[nodiscard]] std::optional<unsigned>
+    next_nonzero_word(unsigned start_word) const noexcept
+    {
+        auto idx = simd::find_next_nonzero(
+            std::span<uint64_t const>(words_), start_word);
+        if (!idx) {
+            return std::nullopt;
+        }
+        return static_cast<unsigned>(*idx);
+    }
+
+    [[nodiscard]] std::optional<unsigned>
+    prev_nonzero_word(int start_word) const noexcept
+    {
+        if (start_word < 0) {
+            return std::nullopt;
+        }
+        auto idx = simd::find_prev_nonzero(
+            std::span<uint64_t const>(words_),
+            static_cast<std::size_t>(start_word));
+        if (!idx) {
+            return std::nullopt;
+        }
+        return static_cast<unsigned>(*idx);
+    }
+
 public:
     void insert(Key x) noexcept
     {
@@ -80,24 +109,21 @@ public:
 
     [[nodiscard]] std::optional<Key> min() const noexcept
     {
-        for (unsigned i = 0; i < WORD_COUNT; ++i) {
-            if (auto idx = find_next(words_[i], i * WORD_BITS)) {
-                return idx;
-            }
+        auto word_idx = next_nonzero_word(0);
+        if (!word_idx) {
+            return std::nullopt;
         }
-        return std::nullopt;
+        return find_next(words_[*word_idx], *word_idx * WORD_BITS);
     }
 
     [[nodiscard]] std::optional<Key> max() const noexcept
     {
-        for (int i = static_cast<int>(WORD_COUNT) - 1; i >= 0; --i) {
-            if (auto idx =
-                    find_prev(words_[static_cast<unsigned>(i)],
-                              static_cast<unsigned>(i) * WORD_BITS)) {
-                return idx;
-            }
+        auto word_idx =
+            prev_nonzero_word(static_cast<int>(WORD_COUNT) - 1);
+        if (!word_idx) {
+            return std::nullopt;
         }
-        return std::nullopt;
+        return find_prev(words_[*word_idx], *word_idx * WORD_BITS);
     }
 
     [[nodiscard]] std::optional<Key> successor(Key x) const noexcept
@@ -113,12 +139,14 @@ public:
         if (auto next = find_next(word, idx * WORD_BITS)) {
             return next;
         }
-        for (unsigned i = idx + 1; i < WORD_COUNT; ++i) {
-            if (auto next = find_next(words_[i], i * WORD_BITS)) {
-                return next;
-            }
+        if (idx + 1 >= WORD_COUNT) {
+            return std::nullopt;
         }
-        return std::nullopt;
+        auto next_word = next_nonzero_word(idx + 1);
+        if (!next_word) {
+            return std::nullopt;
+        }
+        return find_next(words_[*next_word], *next_word * WORD_BITS);
     }
 
     [[nodiscard]] std::optional<Key> predecessor(Key x) const noexcept
@@ -136,13 +164,11 @@ public:
         if (auto prev = find_prev(word, idx * WORD_BITS)) {
             return prev;
         }
-        while (idx > 0) {
-            --idx;
-            if (auto prev = find_prev(words_[idx], idx * WORD_BITS)) {
-                return prev;
-            }
+        auto prev_word = prev_nonzero_word(static_cast<int>(idx) - 1);
+        if (!prev_word) {
+            return std::nullopt;
         }
-        return std::nullopt;
+        return find_prev(words_[*prev_word], *prev_word * WORD_BITS);
     }
 
     template <class Fn> void for_each(Key prefix, Fn &&fn) const

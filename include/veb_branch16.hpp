@@ -7,6 +7,7 @@
 #include <memory>
 #include <optional>
 
+#include "memory_pool.hpp"
 #include "veb_leaf8.hpp"
 
 namespace veb_detail
@@ -70,11 +71,14 @@ private:
 
     using Summary = VebLeaf8;
     using DenseMask = veb_detail::DenseBitset<CLUSTER_BITS>;
+    using LeafPool = pool::ObjectPool<VebLeaf8>;
+    using LeafPtr = std::unique_ptr<VebLeaf8, pool::PoolDeleter<VebLeaf8>>;
 
     DenseMask inline_mask_{};
     std::array<uint8_t, CLUSTER_COUNT> inline_value_{};
-    std::array<std::unique_ptr<VebLeaf8>, CLUSTER_COUNT> clusters_{};
-    std::unique_ptr<Summary> summary_{};
+    std::array<LeafPtr, CLUSTER_COUNT> clusters_{};
+    LeafPtr summary_{};
+    LeafPool *leaf_pool_{nullptr};
 
     [[nodiscard]] static Key combine(unsigned hi, uint16_t lo) noexcept
     {
@@ -84,7 +88,8 @@ private:
     [[nodiscard]] Summary &ensure_summary()
     {
         if (!summary_) {
-            summary_ = std::make_unique<Summary>();
+            assert(leaf_pool_ && "leaf_pool_ must be set");
+            summary_ = pool::make_unique(*leaf_pool_);
         }
         return *summary_;
     }
@@ -140,12 +145,25 @@ private:
     {
         auto &ptr = clusters_[idx];
         if (!ptr) {
-            ptr = std::make_unique<VebLeaf8>();
+            assert(leaf_pool_ && "leaf_pool_ must be set");
+            ptr = pool::make_unique(*leaf_pool_);
         }
         return *ptr;
     }
 
+    static LeafPool *fallback_leaf_pool()
+    {
+        static LeafPool pool;
+        return &pool;
+    }
+
 public:
+    VebBranch16() : leaf_pool_(fallback_leaf_pool()) {}
+    explicit VebBranch16(LeafPool *leaf_pool)
+        : leaf_pool_(leaf_pool ? leaf_pool : fallback_leaf_pool())
+    {
+    }
+
     bool empty() const noexcept
     {
         return !summary_;
