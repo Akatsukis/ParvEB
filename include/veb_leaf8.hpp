@@ -16,7 +16,7 @@ public:
     static constexpr unsigned SUBTREE_BITS = 8;
     static constexpr Key SUBTREE_SIZE = Key(1) << SUBTREE_BITS;
     static constexpr Key MAX_KEY = SUBTREE_SIZE - 1;
-    static constexpr Key PREDECESSOR_QUERY_MAX = SUBTREE_SIZE;
+    static constexpr Key PREDECESSOR_QUERY_MAX = MAX_KEY;
 
 private:
     static constexpr unsigned WORD_BITS = 64;
@@ -118,8 +118,7 @@ public:
 
     [[nodiscard]] std::optional<Key> max() const noexcept
     {
-        auto word_idx =
-            prev_nonzero_word(static_cast<int>(WORD_COUNT) - 1);
+        auto word_idx = prev_nonzero_word(static_cast<int>(WORD_COUNT) - 1);
         if (!word_idx) {
             return std::nullopt;
         }
@@ -158,8 +157,8 @@ public:
         Key search = x - 1;
         unsigned idx = word_index(search);
         unsigned bit = static_cast<unsigned>(search) & 63;
-        uint64_t mask = bit == 63 ? ~uint64_t(0)
-                                  : ((uint64_t(1) << (bit + 1)) - 1);
+        uint64_t mask =
+            bit == 63 ? ~uint64_t(0) : ((uint64_t(1) << (bit + 1)) - 1);
         uint64_t word = words_[idx] & mask;
         if (auto prev = find_prev(word, idx * WORD_BITS)) {
             return prev;
@@ -171,7 +170,8 @@ public:
         return find_prev(words_[*prev_word], *prev_word * WORD_BITS);
     }
 
-    template <class Fn> void for_each(Key prefix, Fn &&fn) const
+    template <class Fn>
+    void for_each(Key prefix, Fn &&fn) const
     {
         for (unsigned i = 0; i < WORD_COUNT; ++i) {
             uint64_t word = words_[i];
@@ -183,7 +183,8 @@ public:
         }
     }
 
-    template <class Fn> void for_each(Fn &&fn) const
+    template <class Fn>
+    void for_each(Fn &&fn) const
     {
         for_each(0, std::forward<Fn>(fn));
     }

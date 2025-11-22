@@ -66,7 +66,7 @@ TEST(Veb32Test, SuccessorBridgesAcrossWideLevels)
     EXPECT_FALSE(tree.successor(high_value).has_value());
 }
 
-TEST(Veb32Test, PredecessorAcceptsOnePastMax)
+TEST(Veb32Test, PredecessorAtMax)
 {
     VebTree32 tree;
     uint32_t const max_key = VebTree32::MAX_KEY;
@@ -76,8 +76,4 @@ TEST(Veb32Test, PredecessorAcceptsOnePastMax)
     auto pred = tree.predecessor(max_key);
     ASSERT_TRUE(pred.has_value());
     EXPECT_EQ(1ull << 25, *pred);
-
-    pred = tree.predecessor(static_cast<uint64_t>(max_key) + 1);
-    ASSERT_TRUE(pred.has_value());
-    EXPECT_EQ(max_key, *pred);
 }

@@ -2,19 +2,20 @@
 
 #include <cassert>
 #include <optional>
+#include <utility>
 #include <vector>
 
 #include "veb_branch.hpp"
 
-class VebTree32
+class VebTree64
 {
 public:
-    using Key = VebTop32::Key;
-    static constexpr Key MAX_KEY = VebTop32::MAX_KEY;
-    static constexpr uint64_t PREDECESSOR_QUERY_MAX =
-        VebTop32::PREDECESSOR_QUERY_MAX;
+    using Key = VebTop64::Key;
+    static constexpr Key MAX_KEY = VebTop64::MAX_KEY;
+    static constexpr Key PREDECESSOR_QUERY_MAX =
+        VebTop64::PREDECESSOR_QUERY_MAX;
 
-    VebTree32() = default;
+    VebTree64() = default;
 
     bool empty() const noexcept
     {
@@ -23,7 +24,6 @@ public:
 
     void insert(Key key)
     {
-        assert(key <= MAX_KEY);
         root_.insert(key);
     }
 
@@ -72,5 +72,5 @@ public:
     }
 
 private:
-    VebTop32 root_{};
+    VebTop64 root_{};
 };

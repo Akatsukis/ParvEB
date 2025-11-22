@@ -80,7 +80,7 @@ namespace
 
 #if PARVEB_HAS_X86
     PARVEB_TARGET_AVX2 std::optional<std::size_t>
-    avx2_find_next(std::span<const uint64_t> words, std::size_t start) noexcept
+    avx2_find_next(std::span<uint64_t const> words, std::size_t start) noexcept
     {
         std::size_t i = start;
         constexpr std::size_t kStride = 4;

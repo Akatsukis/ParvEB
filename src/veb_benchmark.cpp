@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <limits>
 #include <optional>
 #include <random>
 #include <set>
@@ -22,6 +23,7 @@
 
 #include "stopwatch.hpp"
 #include "veb32.hpp"
+#include "veb64.hpp"
 
 namespace
 {
@@ -46,98 +48,85 @@ namespace
         return "unknown";
     }
 
+    enum class KeyMode
+    {
+        Bits32,
+        Bits64
+    };
+
     struct BenchmarkOptions
     {
         DistributionKind distribution = DistributionKind::Uniform;
         double skew = 1.0;
         std::size_t num_inserts = 10'000'000;
+        KeyMode key_mode = KeyMode::Bits64;
     };
 
+    template <class Key>
     class DistributionSampler
     {
     public:
-        DistributionSampler(
-            DistributionKind kind, double skew, uint32_t max_key)
-            : kind_(kind), skew_(skew), max_key_(max_key)
+        DistributionSampler(DistributionKind kind, double skew)
+            : kind_(kind)
+            , skew_(skew)
         {
             initialize();
         }
 
-        uint32_t sample(std::mt19937_64 &rng)
+        Key sample(std::mt19937_64 &rng)
         {
-            std::size_t bucket = bucket_picker_(rng);
-            uint32_t start = bucket_start_[bucket];
-            uint32_t end = bucket_end_[bucket];
-            if (start == end) {
-                return start;
+            Key value = 0;
+            for (std::size_t bit = 0; bit < kBitCount; ++bit) {
+                if (!bit_distributions_[bit](rng)) {
+                    value |= (Key(1) << bit);
+                }
             }
-            std::uniform_int_distribution<uint32_t> dist(start, end);
-            return dist(rng);
+            return value;
         }
 
     private:
-        static constexpr std::size_t kBucketCount = 4096;
+        static constexpr std::size_t kBitCount =
+            static_cast<std::size_t>(std::numeric_limits<Key>::digits);
 
         void initialize()
         {
-            bucket_start_.resize(kBucketCount);
-            bucket_end_.resize(kBucketCount);
-            std::vector<double> weights(kBucketCount);
-            uint64_t span =
-                static_cast<uint64_t>(max_key_) + 1ULL;
-            uint64_t width =
-                std::max<uint64_t>(1, span / kBucketCount);
-
-            for (std::size_t i = 0; i < kBucketCount; ++i) {
-                uint64_t start = std::min<uint64_t>(i * width, max_key_);
-                uint64_t end =
-                    std::min<uint64_t>((i + 1) * width - 1, max_key_);
-                bucket_start_[i] = static_cast<uint32_t>(start);
-                bucket_end_[i] = static_cast<uint32_t>(std::max(start, end));
-                weights[i] = compute_weight(i);
+            bit_distributions_.clear();
+            bit_distributions_.reserve(kBitCount);
+            for (std::size_t bit = 0; bit < kBitCount; ++bit) {
+                double prob_zero = compute_zero_probability(bit);
+                prob_zero = std::clamp(prob_zero, 0.0001, 0.9999);
+                bit_distributions_.emplace_back(prob_zero);
             }
-            bucket_picker_ =
-                std::discrete_distribution<std::size_t>(
-                    weights.begin(), weights.end());
         }
 
-        double compute_weight(std::size_t idx) const
+        double compute_zero_probability(std::size_t bit_index) const
         {
             switch (kind_) {
             case DistributionKind::Uniform:
-                return 1.0;
+                return 0.5;
             case DistributionKind::Exponential: {
-                double lambda = skew_ > 0.0 ? skew_ : 0.0;
-                if (lambda == 0.0) {
-                    return 1.0;
-                }
-                double x = static_cast<double>(idx) /
-                           std::max<std::size_t>(1, kBucketCount - 1);
-                return std::exp(-lambda * x);
+                double lambda = skew_ > 0.0 ? skew_ : 0.0001;
+                return std::exp(-lambda * static_cast<double>(bit_index));
             }
             case DistributionKind::Zipfian: {
                 double s = skew_ > 0.0 ? skew_ : 0.0001;
-                return 1.0 /
-                       std::pow(static_cast<double>(idx) + 1.0, s);
+                return 1.0 / std::pow(static_cast<double>(bit_index) + 1.0, s);
             }
             }
-            return 1.0;
+            return 0.5;
         }
 
         DistributionKind kind_;
         double skew_;
-        uint32_t max_key_;
-        std::vector<uint32_t> bucket_start_;
-        std::vector<uint32_t> bucket_end_;
-        std::discrete_distribution<std::size_t> bucket_picker_;
+        std::vector<std::bernoulli_distribution> bit_distributions_;
     };
 
     void print_usage()
     {
-        std::cerr
-            << "Usage: veb_benchmark "
-               "[--distribution=uniform|exponential|zipfian] "
-               "[--skew=value] [--num_inserts=N]\n";
+        std::cerr << "Usage: veb_benchmark "
+                     "[--distribution=uniform|exponential|zipfian] "
+                     "[--bits=32|64] "
+                     "[--skew=value] [--num_inserts=N]\n";
     }
 
     DistributionKind parse_distribution(std::string_view value)
@@ -152,6 +141,17 @@ namespace
             return DistributionKind::Zipfian;
         }
         throw std::runtime_error("unknown distribution: " + std::string(value));
+    }
+
+    KeyMode parse_key_mode(std::string_view value)
+    {
+        if (value == "32") {
+            return KeyMode::Bits32;
+        }
+        if (value == "64") {
+            return KeyMode::Bits64;
+        }
+        throw std::runtime_error("unknown bit width: " + std::string(value));
     }
 
     BenchmarkOptions parse_options(int argc, char **argv)
@@ -182,6 +182,17 @@ namespace
                 std::string value(arg.substr(std::strlen("--num_inserts=")));
                 opts.num_inserts = std::stoull(value);
             }
+            else if (arg.rfind("--bits=", 0) == 0) {
+                std::string value(arg.substr(std::strlen("--bits=")));
+                try {
+                    opts.key_mode = parse_key_mode(value);
+                }
+                catch (std::exception const &ex) {
+                    std::cerr << ex.what() << "\n";
+                    print_usage();
+                    std::exit(1);
+                }
+            }
             else {
                 std::cerr << "Unknown argument: " << arg << "\n";
                 print_usage();
@@ -194,8 +205,8 @@ namespace
         return opts;
     }
 
-    std::optional<uint32_t>
-    predecessor_from_set(std::set<uint32_t> const &data, uint32_t key)
+    template <class Key>
+    std::optional<Key> predecessor_from_set(std::set<Key> const &data, Key key)
     {
         if (data.empty()) {
             return std::nullopt;
@@ -213,9 +224,8 @@ namespace
         return *it;
     }
 
-    template <class Set>
-    std::optional<uint32_t>
-    successor_from_ordered(Set const &data, uint32_t key)
+    template <class Set, class Key>
+    std::optional<Key> successor_from_ordered(Set const &data, Key key)
     {
         auto it = data.upper_bound(key);
         if (it == data.end()) {
@@ -224,9 +234,8 @@ namespace
         return *it;
     }
 
-    template <class Set>
-    std::optional<uint32_t>
-    predecessor_from_ordered(Set const &data, uint32_t key)
+    template <class Set, class Key>
+    std::optional<Key> predecessor_from_ordered(Set const &data, Key key)
     {
         if (data.empty()) {
             return std::nullopt;
@@ -246,9 +255,8 @@ namespace
 
     template <class QueryVec, class Fn>
     auto collect_queries(
-        Stopwatch<> &sw, std::string_view label,
-        QueryVec const &queries, Fn &&fn)
-        -> std::vector<decltype(fn(queries[0]))>
+        Stopwatch<> &sw, std::string_view label, QueryVec const &queries,
+        Fn &&fn) -> std::vector<decltype(fn(queries[0]))>
     {
         using Result = decltype(fn(queries[0]));
         std::vector<Result> results;
@@ -260,142 +268,164 @@ namespace
         return results;
     }
 
+    template <class Tree>
+    void run_benchmark_for_tree(BenchmarkOptions const &options)
+    {
+        using Key = typename Tree::Key;
+        std::size_t num_inserts = options.num_inserts;
+
+        LOG_INFO(
+            "=== vEB benchmark: {} inserts ({}-bit) ===",
+            num_inserts,
+            sizeof(Key) * 8);
+        LOG_INFO(
+            "Distribution={}, skew={}",
+            to_string(options.distribution),
+            options.skew);
+
+        std::mt19937_64 rng(std::random_device{}());
+        DistributionSampler<Key> sampler(options.distribution, options.skew);
+
+        std::vector<Key> values;
+        values.reserve(num_inserts);
+        std::vector<Key> successor_queries;
+        successor_queries.reserve(num_inserts);
+        std::vector<Key> predecessor_queries;
+        predecessor_queries.reserve(num_inserts);
+
+        Stopwatch<> data_sw("random data generation");
+        for (std::size_t i = 0; i < num_inserts; ++i) {
+            values.emplace_back(sampler.sample(rng));
+            successor_queries.emplace_back(sampler.sample(rng));
+            predecessor_queries.emplace_back(sampler.sample(rng));
+        }
+        data_sw.stop();
+        data_sw.total_time();
+
+        auto assert_sorted = [](std::string_view, auto const &data) {
+            assert(
+                std::is_sorted(data.begin(), data.end()) &&
+                "data must be sorted");
+        };
+
+        // std::set baseline (also generates expected answers)
+        LOG_INFO("--- std::set ---");
+        Stopwatch<> std_sw("std::set");
+        std::set<Key> std_set;
+        for (Key value : values) {
+            std_set.insert(value);
+        }
+        std_sw.next("insert");
+        std::vector<Key> std_sorted(std_set.begin(), std_set.end());
+        assert_sorted("std::set", std_sorted);
+
+        std::vector<std::optional<Key>> expected_successors(
+            successor_queries.size());
+        for (std::size_t i = 0; i < successor_queries.size(); ++i) {
+            expected_successors[i] = successor_from_ordered<std::set<Key>, Key>(
+                std_set, successor_queries[i]);
+        }
+        std_sw.next("successor");
+
+        std::vector<std::optional<Key>> expected_predecessors(
+            predecessor_queries.size());
+        for (std::size_t i = 0; i < predecessor_queries.size(); ++i) {
+            expected_predecessors[i] =
+                predecessor_from_set(std_set, predecessor_queries[i]);
+        }
+        std_sw.next("predecessor");
+        std_sw.total_time();
+
+        // vEB tree
+        LOG_INFO("--- vEB ---");
+        Stopwatch<> veb_sw("vEB");
+        Tree tree;
+        for (Key value : values) {
+            tree.insert(value);
+        }
+        veb_sw.next("insert");
+        std::vector<Key> veb_sorted = tree.to_vector();
+        assert_sorted("vEB", veb_sorted);
+        assert(veb_sorted == std_sorted);
+        auto veb_successors = collect_queries(
+            veb_sw, "successor", successor_queries, [&](Key key) {
+                return tree.successor(key);
+            });
+        auto veb_predecessors = collect_queries(
+            veb_sw, "predecessor", predecessor_queries, [&](Key key) {
+                return tree.predecessor(static_cast<uint64_t>(key));
+            });
+        assert(veb_successors == expected_successors);
+        assert(veb_predecessors == expected_predecessors);
+        veb_sw.total_time();
+
+        // absl::btree_set
+        LOG_INFO("--- absl::btree_set ---");
+        Stopwatch<> absl_sw("absl::btree_set");
+        absl::btree_set<Key> absl_set;
+        for (Key value : values) {
+            absl_set.insert(value);
+        }
+        absl_sw.next("insert");
+        std::vector<Key> absl_sorted(absl_set.begin(), absl_set.end());
+        assert_sorted("absl::btree_set", absl_sorted);
+        assert(absl_sorted == std_sorted);
+        auto absl_successors = collect_queries(
+            absl_sw, "successor", successor_queries, [&](Key key) {
+                return successor_from_ordered<absl::btree_set<Key>, Key>(
+                    absl_set, key);
+            });
+        auto absl_predecessors = collect_queries(
+            absl_sw, "predecessor", predecessor_queries, [&](Key key) {
+                return predecessor_from_ordered<absl::btree_set<Key>, Key>(
+                    absl_set, key);
+            });
+        assert(absl_successors == expected_successors);
+        assert(absl_predecessors == expected_predecessors);
+        absl_sw.total_time();
+
+        // boost::container::set
+        LOG_INFO("--- boost::container::set ---");
+        Stopwatch<> boost_sw("boost::container::set");
+        boost::container::set<Key> boost_set;
+        for (Key value : values) {
+            boost_set.insert(value);
+        }
+        boost_sw.next("insert");
+        std::vector<Key> boost_sorted(boost_set.begin(), boost_set.end());
+        assert_sorted("boost::container::set", boost_sorted);
+        assert(boost_sorted == std_sorted);
+        auto boost_successors = collect_queries(
+            boost_sw, "successor", successor_queries, [&](Key key) {
+                return successor_from_ordered<boost::container::set<Key>, Key>(
+                    boost_set, key);
+            });
+        auto boost_predecessors = collect_queries(
+            boost_sw, "predecessor", predecessor_queries, [&](Key key) {
+                return predecessor_from_ordered<
+                    boost::container::set<Key>,
+                    Key>(boost_set, key);
+            });
+        assert(boost_successors == expected_successors);
+        assert(boost_predecessors == expected_predecessors);
+        boost_sw.total_time();
+
+        LOG_INFO("Benchmark complete");
+    }
+
 } // namespace
 
 int main(int argc, char **argv)
 {
     auto options = parse_options(argc, argv);
-    std::size_t num_inserts = options.num_inserts;
-
     quill::start();
     quill::preallocate();
 
-    LOG_INFO("=== vEB benchmark: {} inserts ===", num_inserts);
-    LOG_INFO(
-        "Distribution={}, skew={}",
-        to_string(options.distribution), options.skew);
-
-    std::mt19937_64 rng(std::random_device{}());
-    DistributionSampler sampler(options.distribution, options.skew, VebTree32::MAX_KEY);
-
-    std::vector<uint32_t> values;
-    values.reserve(num_inserts);
-    std::vector<uint32_t> successor_queries;
-    successor_queries.reserve(num_inserts);
-    std::vector<uint32_t> predecessor_queries;
-    predecessor_queries.reserve(num_inserts);
-
-    Stopwatch<> data_sw("random data generation");
-    for (std::size_t i = 0; i < num_inserts; ++i) {
-        values.emplace_back(sampler.sample(rng));
-        successor_queries.emplace_back(sampler.sample(rng));
-        predecessor_queries.emplace_back(sampler.sample(rng));
+    if (options.key_mode == KeyMode::Bits64) {
+        run_benchmark_for_tree<VebTree64>(options);
     }
-    data_sw.stop();
-    data_sw.total_time();
-
-    auto assert_sorted = [](std::string_view, auto const &data) {
-        assert(
-            std::is_sorted(data.begin(), data.end()) && "data must be sorted");
-    };
-
-    // std::set baseline (also generates expected answers)
-    LOG_INFO("--- std::set ---");
-    Stopwatch<> std_sw("std::set");
-    std::set<uint32_t> std_set;
-    for (uint32_t value : values) {
-        std_set.insert(value);
+    else {
+        run_benchmark_for_tree<VebTree32>(options);
     }
-    std_sw.next("insert");
-    std::vector<uint32_t> std_sorted(std_set.begin(), std_set.end());
-    assert_sorted("std::set", std_sorted);
-
-    std::vector<std::optional<uint32_t>> expected_successors(
-        successor_queries.size());
-    for (std::size_t i = 0; i < successor_queries.size(); ++i) {
-        expected_successors[i] =
-            successor_from_ordered(std_set, successor_queries[i]);
-    }
-    std_sw.next("successor");
-
-    std::vector<std::optional<uint32_t>> expected_predecessors(
-        predecessor_queries.size());
-    for (std::size_t i = 0; i < predecessor_queries.size(); ++i) {
-        expected_predecessors[i] =
-            predecessor_from_set(std_set, predecessor_queries[i]);
-    }
-    std_sw.next("predecessor");
-    std_sw.total_time();
-
-    // vEB tree
-    LOG_INFO("--- vEB ---");
-    Stopwatch<> veb_sw("vEB");
-    VebTree32 tree;
-    for (uint32_t value : values) {
-        tree.insert(value);
-    }
-    veb_sw.next("insert");
-    std::vector<uint32_t> veb_sorted = tree.to_vector();
-    assert_sorted("vEB", veb_sorted);
-    assert(veb_sorted == std_sorted);
-    auto veb_successors = collect_queries(
-        veb_sw, "successor", successor_queries, [&](uint32_t key) {
-            return tree.successor(key);
-        });
-    auto veb_predecessors = collect_queries(
-        veb_sw, "predecessor", predecessor_queries, [&](uint32_t key) {
-            return tree.predecessor(key);
-        });
-    assert(veb_successors == expected_successors);
-    assert(veb_predecessors == expected_predecessors);
-    veb_sw.total_time();
-
-    // absl::btree_set
-    LOG_INFO("--- absl::btree_set ---");
-    Stopwatch<> absl_sw("absl::btree_set");
-    absl::btree_set<uint32_t> absl_set;
-    for (uint32_t value : values) {
-        absl_set.insert(value);
-    }
-    absl_sw.next("insert");
-    std::vector<uint32_t> absl_sorted(absl_set.begin(), absl_set.end());
-    assert_sorted("absl::btree_set", absl_sorted);
-    assert(absl_sorted == std_sorted);
-    auto absl_successors = collect_queries(
-        absl_sw, "successor", successor_queries, [&](uint32_t key) {
-            return successor_from_ordered(absl_set, key);
-        });
-    auto absl_predecessors = collect_queries(
-        absl_sw, "predecessor", predecessor_queries, [&](uint32_t key) {
-            return predecessor_from_ordered(absl_set, key);
-        });
-    assert(absl_successors == expected_successors);
-    assert(absl_predecessors == expected_predecessors);
-    absl_sw.total_time();
-
-    // boost::container::set
-    LOG_INFO("--- boost::container::set ---");
-    Stopwatch<> boost_sw("boost::container::set");
-    boost::container::set<uint32_t> boost_set;
-    for (uint32_t value : values) {
-        boost_set.insert(value);
-    }
-    boost_sw.next("insert");
-    std::vector<uint32_t> boost_sorted(boost_set.begin(), boost_set.end());
-    assert_sorted("boost::container::set", boost_sorted);
-    assert(boost_sorted == std_sorted);
-    auto boost_successors = collect_queries(
-        boost_sw, "successor", successor_queries, [&](uint32_t key) {
-            return successor_from_ordered(boost_set, key);
-        });
-    auto boost_predecessors = collect_queries(
-        boost_sw, "predecessor", predecessor_queries, [&](uint32_t key) {
-            return predecessor_from_ordered(boost_set, key);
-        });
-    assert(boost_successors == expected_successors);
-    assert(boost_predecessors == expected_predecessors);
-    boost_sw.total_time();
-
-    LOG_INFO("Benchmark complete");
     return 0;
 }

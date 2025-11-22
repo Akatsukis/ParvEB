@@ -1,7 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "veb_branch16.hpp"
-#include "veb_leaf8.hpp"
+#include "veb_branch.hpp"
 
 using Branch = VebBranch16;
 

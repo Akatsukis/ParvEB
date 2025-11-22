@@ -105,13 +105,13 @@ TEST(Leaf8Test, PredecessorReturnsLargestSmallerValue)
     EXPECT_EQ(8u, *leaf.predecessor(17));
 }
 
-TEST(Leaf8Test, PredecessorTreats256AsInclusiveUpperBound)
+TEST(Leaf8Test, PredecessorHandlesUpperBound)
 {
     VebLeaf8 leaf;
     leaf.insert(0);
     leaf.insert(17);
     leaf.insert(255);
 
-    ASSERT_TRUE(leaf.predecessor(256).has_value());
-    EXPECT_EQ(255u, *leaf.predecessor(256));
+    ASSERT_TRUE(leaf.predecessor(255).has_value());
+    EXPECT_EQ(17u, *leaf.predecessor(255));
 }
