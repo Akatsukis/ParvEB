@@ -1,3 +1,5 @@
+#include <array>
+
 #include <gtest/gtest.h>
 
 #include "veb_leaf8.hpp"
@@ -111,4 +113,45 @@ TEST(Leaf8Test, PredecessorHandlesUpperBound)
 
     ASSERT_TRUE(leaf.predecessor(max_key).has_value());
     EXPECT_EQ(17u, *leaf.predecessor(max_key));
+}
+
+TEST(Leaf8Test, BatchInsertErase)
+{
+    VebLeaf8 leaf;
+    std::array<VebLeaf8::Key, 6> keys = {0, 5, 63, 64, 129, 255};
+    leaf.batch_insert(keys);
+    for (auto k : keys) {
+        EXPECT_TRUE(leaf.contains(k));
+    }
+
+    std::array<VebLeaf8::Key, 3> erase_keys = {5, 129, 255};
+    leaf.batch_erase(erase_keys);
+    EXPECT_TRUE(leaf.contains(0));
+    EXPECT_TRUE(leaf.contains(63));
+    EXPECT_TRUE(leaf.contains(64));
+    EXPECT_FALSE(leaf.contains(5));
+    EXPECT_FALSE(leaf.contains(129));
+    EXPECT_FALSE(leaf.contains(255));
+}
+
+TEST(Leaf8Test, BatchInsertOverwritesExisting)
+{
+    VebLeaf8 leaf;
+    leaf.insert(10);
+    leaf.insert(200);
+
+    std::array<VebLeaf8::Key, 4> keys = {10, 11, 128, 200};
+    leaf.batch_insert(keys);
+
+    EXPECT_TRUE(leaf.contains(10));
+    EXPECT_TRUE(leaf.contains(11));
+    EXPECT_TRUE(leaf.contains(128));
+    EXPECT_TRUE(leaf.contains(200));
+
+    std::array<VebLeaf8::Key, 2> erase_keys = {10, 128};
+    leaf.batch_erase(erase_keys);
+    EXPECT_FALSE(leaf.contains(10));
+    EXPECT_FALSE(leaf.contains(128));
+    EXPECT_TRUE(leaf.contains(11));
+    EXPECT_TRUE(leaf.contains(200));
 }

@@ -30,6 +30,36 @@ public:
         bits &= ~(uint64_t(1) << x);
     }
 
+    template <class It>
+    inline void batch_insert(It first, It last) noexcept
+    {
+        uint64_t mask = 0;
+        for (; first != last; ++first) {
+            mask |= (uint64_t(1) << *first);
+        }
+        bits |= mask;
+    }
+
+    template <class It>
+    inline void batch_erase(It first, It last) noexcept
+    {
+        uint64_t mask = 0;
+        for (; first != last; ++first) {
+            mask |= (uint64_t(1) << *first);
+        }
+        bits &= ~mask;
+    }
+
+    inline void batch_insert(std::span<Key const> keys) noexcept
+    {
+        batch_insert(keys.begin(), keys.end());
+    }
+
+    inline void batch_erase(std::span<Key const> keys) noexcept
+    {
+        batch_erase(keys.begin(), keys.end());
+    }
+
     inline bool contains(Key x) const noexcept
     {
         return bits >> x & 1;

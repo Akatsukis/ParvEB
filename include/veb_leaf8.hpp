@@ -38,6 +38,42 @@ public:
         words_[word_idx] &= ~mask;
     }
 
+    template <class It>
+    inline void batch_insert(It first, It last) noexcept
+    {
+        uint64_t accum[WORD_COUNT]{};
+        for (; first != last; ++first) {
+            auto [idx, mask] = locate(*first);
+            accum[idx] |= mask;
+        }
+        for (unsigned i = 0; i < WORD_COUNT; ++i) {
+            words_[i] |= accum[i];
+        }
+    }
+
+    template <class It>
+    inline void batch_erase(It first, It last) noexcept
+    {
+        uint64_t accum[WORD_COUNT]{};
+        for (; first != last; ++first) {
+            auto [idx, mask] = locate(*first);
+            accum[idx] |= mask;
+        }
+        for (unsigned i = 0; i < WORD_COUNT; ++i) {
+            words_[i] &= ~accum[i];
+        }
+    }
+
+    inline void batch_insert(std::span<Key const> keys) noexcept
+    {
+        batch_insert(keys.begin(), keys.end());
+    }
+
+    inline void batch_erase(std::span<Key const> keys) noexcept
+    {
+        batch_erase(keys.begin(), keys.end());
+    }
+
     [[nodiscard]] inline bool contains(Key x) const noexcept
     {
         auto [word_idx, mask] = locate(x);

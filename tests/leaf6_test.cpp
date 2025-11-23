@@ -17,6 +17,24 @@ TEST(Leaf6Test, InsertUpdatesContains)
     EXPECT_FALSE(leaf.contains(7));
 }
 
+TEST(Leaf6Test, BatchInsertErase)
+{
+    VebLeaf6 leaf;
+    std::array<VebLeaf6::Key, 5> keys = {0, 5, 17, 42, 63};
+    leaf.batch_insert(keys);
+    for (auto k : keys) {
+        EXPECT_TRUE(leaf.contains(k));
+    }
+
+    std::array<VebLeaf6::Key, 3> erase_keys = {5, 42, 63};
+    leaf.batch_erase(erase_keys);
+    EXPECT_TRUE(leaf.contains(0));
+    EXPECT_TRUE(leaf.contains(17));
+    EXPECT_FALSE(leaf.contains(5));
+    EXPECT_FALSE(leaf.contains(42));
+    EXPECT_FALSE(leaf.contains(63));
+}
+
 TEST(Leaf6Test, MinMaxTrackExtremes)
 {
     VebLeaf6 leaf;
