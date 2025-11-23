@@ -7,7 +7,7 @@ BUILD_SCRIPT="$REPO_ROOT/scripts/build_release.sh"
 BENCH_BIN="$REPO_ROOT/build/release/veb_benchmark"
 
 SIMD_OPTION="${PARVEB_ENABLE_SIMD:-ON}"
-BITS_OPTION="${PARVEB_BENCH_BITS:-64}"
+BITS_OPTION="${PARVEB_BENCH_BITS:-48}"
 HOST_FULL="$(hostname -s 2>/dev/null || hostname)"
 HOSTNAME="${HOST_FULL%%.*}"
 LOG_DIR="$REPO_ROOT/logs/$HOSTNAME"

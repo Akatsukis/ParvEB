@@ -2,20 +2,18 @@
 
 #include <cassert>
 #include <optional>
-#include <utility>
 #include <vector>
 
 #include "veb_branch.hpp"
 
-class VebTree64
+class VebTree48
 {
 public:
-    using Key = VebTop64::Key;
-    static constexpr Key MAX_KEY = VebTop64::MAX_KEY;
-    static constexpr Key PREDECESSOR_QUERY_MAX =
-        VebTop64::PREDECESSOR_QUERY_MAX;
+    using Key = VebTop48::Key;
+    static constexpr unsigned SUBTREE_BITS = VebTop48::SUBTREE_BITS;
+    static constexpr Key MAX_KEY = VebTop48::MAX_KEY;
 
-    VebTree64() = default;
+    VebTree48() = default;
 
     bool empty() const noexcept
     {
@@ -54,7 +52,6 @@ public:
 
     std::optional<Key> predecessor(Key key) const noexcept
     {
-        assert(key <= PREDECESSOR_QUERY_MAX);
         return root_.predecessor(key);
     }
 
@@ -72,5 +69,5 @@ public:
     }
 
 private:
-    VebTop64 root_{};
+    VebTop48 root_{};
 };

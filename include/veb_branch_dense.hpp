@@ -38,7 +38,6 @@ public:
             return static_cast<Key>((uint64_t{1} << Bits) - 1);
         }
     }();
-    static constexpr Key PREDECESSOR_QUERY_MAX = MAX_KEY;
     static constexpr Key MAX = MAX_KEY;
     static constexpr unsigned FANOUT_BITS = CLUSTER_BITS;
 
@@ -51,7 +50,6 @@ public:
 
     void insert(Key key)
     {
-        assert(key <= MAX_KEY);
         unsigned hi = static_cast<unsigned>(key >> CLUSTER_BITS);
         ChildKey lo = static_cast<ChildKey>(key & CHILD_MASK);
 

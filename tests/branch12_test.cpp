@@ -2,9 +2,9 @@
 
 #include "veb_branch.hpp"
 
-using Branch = VebBranch16;
+using Branch = VebBranch12;
 
-TEST(Branch16Test, StartsEmptyUntilInsert)
+TEST(Branch12Test, StartsEmptyUntilInsert)
 {
     Branch branch;
     EXPECT_TRUE(branch.empty());
@@ -13,7 +13,7 @@ TEST(Branch16Test, StartsEmptyUntilInsert)
     EXPECT_FALSE(branch.empty());
 }
 
-TEST(Branch16Test, ContainsRecognizesValuesAcrossChildren)
+TEST(Branch12Test, ContainsRecognizesValuesAcrossChildren)
 {
     Branch branch;
     branch.insert(0);
@@ -25,10 +25,10 @@ TEST(Branch16Test, ContainsRecognizesValuesAcrossChildren)
     EXPECT_TRUE(branch.contains(255));
     EXPECT_TRUE(branch.contains(256));
     EXPECT_TRUE(branch.contains(1024));
-    EXPECT_FALSE(branch.contains(4096));
+    EXPECT_FALSE(branch.contains(4095));
 }
 
-TEST(Branch16Test, MinTracksGlobalMinimum)
+TEST(Branch12Test, MinTracksGlobalMinimum)
 {
     Branch branch;
     branch.insert(256);
@@ -40,7 +40,7 @@ TEST(Branch16Test, MinTracksGlobalMinimum)
     EXPECT_EQ(5u, *min_val);
 }
 
-TEST(Branch16Test, MaxTracksGlobalMaximum)
+TEST(Branch12Test, MaxTracksGlobalMaximum)
 {
     Branch branch;
     branch.insert(255);
@@ -52,7 +52,7 @@ TEST(Branch16Test, MaxTracksGlobalMaximum)
     EXPECT_EQ(1024u, *max_val);
 }
 
-TEST(Branch16Test, EraseUpdatesMinWhenLowestLeafRemoved)
+TEST(Branch12Test, EraseUpdatesMinWhenLowestLeafRemoved)
 {
     Branch branch;
     branch.insert(5);
@@ -70,7 +70,7 @@ TEST(Branch16Test, EraseUpdatesMinWhenLowestLeafRemoved)
     EXPECT_EQ(130u, *min_val);
 }
 
-TEST(Branch16Test, EraseRemovesChildrenAndCanBecomeEmpty)
+TEST(Branch12Test, EraseRemovesChildrenAndCanBecomeEmpty)
 {
     Branch branch;
     branch.insert(5);
@@ -85,7 +85,7 @@ TEST(Branch16Test, EraseRemovesChildrenAndCanBecomeEmpty)
     EXPECT_FALSE(branch.contains(70));
 }
 
-TEST(Branch16Test, SuccessorWithinSameChild)
+TEST(Branch12Test, SuccessorWithinSameChild)
 {
     Branch branch;
     branch.insert(2);
@@ -96,7 +96,7 @@ TEST(Branch16Test, SuccessorWithinSameChild)
     EXPECT_EQ(10u, *succ);
 }
 
-TEST(Branch16Test, SuccessorAcrossChildBoundary)
+TEST(Branch12Test, SuccessorAcrossChildBoundary)
 {
     Branch branch;
     branch.insert(255);
@@ -107,16 +107,16 @@ TEST(Branch16Test, SuccessorAcrossChildBoundary)
     EXPECT_EQ(300u, *succ);
 }
 
-TEST(Branch16Test, SuccessorReturnsNullAfterLargestElement)
+TEST(Branch12Test, SuccessorReturnsNullAfterLargestElement)
 {
     Branch branch;
-    branch.insert(60000);
+    branch.insert(600);
 
-    EXPECT_FALSE(branch.successor(60000).has_value());
+    EXPECT_FALSE(branch.successor(600).has_value());
     EXPECT_FALSE(branch.successor(0xFFFF).has_value());
 }
 
-TEST(Branch16Test, PredecessorWithinSameChild)
+TEST(Branch12Test, PredecessorWithinSameChild)
 {
     Branch branch;
     branch.insert(2);
@@ -127,7 +127,7 @@ TEST(Branch16Test, PredecessorWithinSameChild)
     EXPECT_EQ(2u, *pred);
 }
 
-TEST(Branch16Test, PredecessorAcrossChildBoundary)
+TEST(Branch12Test, PredecessorAcrossChildBoundary)
 {
     Branch branch;
     branch.insert(2);
@@ -138,7 +138,7 @@ TEST(Branch16Test, PredecessorAcrossChildBoundary)
     EXPECT_EQ(2u, *pred);
 }
 
-TEST(Branch16Test, PredecessorReturnsNullBeforeSmallestElement)
+TEST(Branch12Test, PredecessorReturnsNullBeforeSmallestElement)
 {
     Branch branch;
     branch.insert(5);

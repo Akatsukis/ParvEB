@@ -22,8 +22,8 @@
 #include "quill/Quill.h"
 
 #include "stopwatch.hpp"
-#include "veb32.hpp"
-#include "veb64.hpp"
+#include "veb24.hpp"
+#include "veb48.hpp"
 
 namespace
 {
@@ -50,8 +50,8 @@ namespace
 
     enum class KeyMode
     {
-        Bits32,
-        Bits64
+        Bits24,
+        Bits48
     };
 
     struct BenchmarkOptions
@@ -59,10 +59,10 @@ namespace
         DistributionKind distribution = DistributionKind::Uniform;
         double skew = 1.0;
         std::size_t num_inserts = 10'000'000;
-        KeyMode key_mode = KeyMode::Bits64;
+        KeyMode key_mode = KeyMode::Bits48;
     };
 
-    template <class Key>
+    template <class Key, unsigned BitCount>
     class DistributionSampler
     {
     public:
@@ -76,7 +76,7 @@ namespace
         Key sample(std::mt19937_64 &rng)
         {
             Key value = 0;
-            for (std::size_t bit = 0; bit < kBitCount; ++bit) {
+            for (std::size_t bit = 0; bit < BitCount; ++bit) {
                 if (!bit_distributions_[bit](rng)) {
                     value |= (Key(1) << bit);
                 }
@@ -85,14 +85,11 @@ namespace
         }
 
     private:
-        static constexpr std::size_t kBitCount =
-            static_cast<std::size_t>(std::numeric_limits<Key>::digits);
-
         void initialize()
         {
             bit_distributions_.clear();
-            bit_distributions_.reserve(kBitCount);
-            for (std::size_t bit = 0; bit < kBitCount; ++bit) {
+            bit_distributions_.reserve(BitCount);
+            for (std::size_t bit = 0; bit < BitCount; ++bit) {
                 double prob_zero = compute_zero_probability(bit);
                 prob_zero = std::clamp(prob_zero, 0.0001, 0.9999);
                 bit_distributions_.emplace_back(prob_zero);
@@ -125,7 +122,7 @@ namespace
     {
         std::cerr << "Usage: veb_benchmark "
                      "[--distribution=uniform|exponential|zipfian] "
-                     "[--bits=32|64] "
+                     "[--bits=24|48] "
                      "[--skew=value] [--num_inserts=N]\n";
     }
 
@@ -145,11 +142,11 @@ namespace
 
     KeyMode parse_key_mode(std::string_view value)
     {
-        if (value == "32") {
-            return KeyMode::Bits32;
+        if (value == "24") {
+            return KeyMode::Bits24;
         }
-        if (value == "64") {
-            return KeyMode::Bits64;
+        if (value == "48") {
+            return KeyMode::Bits48;
         }
         throw std::runtime_error("unknown bit width: " + std::string(value));
     }
@@ -268,7 +265,7 @@ namespace
         return results;
     }
 
-    template <class Tree>
+    template <class Tree, unsigned BitCount>
     void run_benchmark_for_tree(BenchmarkOptions const &options)
     {
         using Key = typename Tree::Key;
@@ -277,14 +274,15 @@ namespace
         LOG_INFO(
             "=== vEB benchmark: {} inserts ({}-bit) ===",
             num_inserts,
-            sizeof(Key) * 8);
+            BitCount);
         LOG_INFO(
             "Distribution={}, skew={}",
             to_string(options.distribution),
             options.skew);
 
         std::mt19937_64 rng(std::random_device{}());
-        DistributionSampler<Key> sampler(options.distribution, options.skew);
+        DistributionSampler<Key, BitCount> sampler(
+            options.distribution, options.skew);
 
         std::vector<Key> values;
         values.reserve(num_inserts);
@@ -421,11 +419,11 @@ int main(int argc, char **argv)
     quill::start();
     quill::preallocate();
 
-    if (options.key_mode == KeyMode::Bits64) {
-        run_benchmark_for_tree<VebTree64>(options);
+    if (options.key_mode == KeyMode::Bits48) {
+        run_benchmark_for_tree<VebTree48, 48>(options);
     }
     else {
-        run_benchmark_for_tree<VebTree32>(options);
+        run_benchmark_for_tree<VebTree24, 24>(options);
     }
     return 0;
 }

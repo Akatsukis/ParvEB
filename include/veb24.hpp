@@ -6,15 +6,14 @@
 
 #include "veb_branch.hpp"
 
-class VebTree32
+class VebTree24
 {
 public:
-    using Key = VebTop32::Key;
-    static constexpr Key MAX_KEY = VebTop32::MAX_KEY;
-    static constexpr uint64_t PREDECESSOR_QUERY_MAX =
-        VebTop32::PREDECESSOR_QUERY_MAX;
+    using Key = VebTop24::Key;
+    static constexpr unsigned SUBTREE_BITS = VebTop24::SUBTREE_BITS;
+    static constexpr Key MAX_KEY = VebTop24::MAX_KEY;
 
-    VebTree32() = default;
+    VebTree24() = default;
 
     bool empty() const noexcept
     {
@@ -23,7 +22,6 @@ public:
 
     void insert(Key key)
     {
-        assert(key <= MAX_KEY);
         root_.insert(key);
     }
 
@@ -54,7 +52,6 @@ public:
 
     std::optional<Key> predecessor(Key key) const noexcept
     {
-        assert(key <= PREDECESSOR_QUERY_MAX);
         return root_.predecessor(key);
     }
 
@@ -72,5 +69,5 @@ public:
     }
 
 private:
-    VebTop32 root_{};
+    VebTop24 root_{};
 };

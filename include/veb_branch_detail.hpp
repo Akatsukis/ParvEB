@@ -5,7 +5,7 @@
 #include <type_traits>
 #include <utility>
 
-#include "veb_leaf8.hpp"
+#include "veb_leaf6.hpp"
 
 template <unsigned Bits, bool Sparse>
 class VebBranch;
@@ -74,7 +74,7 @@ namespace veb_detail
             default_sparse_storage<CHILD_BITS>();
 
         using type = std::conditional_t<
-            CHILD_BITS == 8, VebLeaf8, VebBranch<CHILD_BITS, CHILD_SPARSE>>;
+            CHILD_BITS == 6, VebLeaf6, VebBranch<CHILD_BITS, CHILD_SPARSE>>;
     };
 
 } // namespace veb_detail
