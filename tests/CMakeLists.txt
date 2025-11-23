@@ -1,0 +1,45 @@
+enable_testing()
+
+add_executable(leaf6_test leaf6_test.cpp)
+target_include_directories(leaf6_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(leaf6_test PRIVATE gtest_main parveb quill::quill)
+target_compile_definitions(leaf6_test PRIVATE QUILL_ROOT_LOGGER_ONLY)
+
+include(GoogleTest)
+gtest_discover_tests(leaf6_test)
+
+add_executable(leaf8_test leaf8_test.cpp)
+target_include_directories(leaf8_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(leaf8_test PRIVATE gtest_main parveb quill::quill)
+target_compile_definitions(leaf8_test PRIVATE QUILL_ROOT_LOGGER_ONLY)
+gtest_discover_tests(leaf8_test)
+
+add_executable(branch12_test branch12_test.cpp)
+target_include_directories(branch12_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(branch12_test PRIVATE gtest_main parveb quill::quill)
+target_compile_definitions(branch12_test PRIVATE QUILL_ROOT_LOGGER_ONLY)
+gtest_discover_tests(branch12_test)
+
+add_executable(veb24_test veb24_test.cpp)
+target_include_directories(veb24_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(veb24_test PRIVATE gtest_main parveb quill::quill)
+target_compile_definitions(veb24_test PRIVATE QUILL_ROOT_LOGGER_ONLY)
+gtest_discover_tests(veb24_test)
+
+add_executable(veb48_test veb48_test.cpp)
+target_include_directories(veb48_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(veb48_test PRIVATE gtest_main parveb quill::quill)
+target_compile_definitions(veb48_test PRIVATE QUILL_ROOT_LOGGER_ONLY)
+gtest_discover_tests(veb48_test)
+
+add_executable(veb32_test veb32_test.cpp)
+target_include_directories(veb32_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(veb32_test PRIVATE gtest_main parveb quill::quill)
+target_compile_definitions(veb32_test PRIVATE QUILL_ROOT_LOGGER_ONLY)
+gtest_discover_tests(veb32_test)
+
+add_executable(veb64_test veb64_test.cpp)
+target_include_directories(veb64_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(veb64_test PRIVATE gtest_main parveb quill::quill)
+target_compile_definitions(veb64_test PRIVATE QUILL_ROOT_LOGGER_ONLY)
+gtest_discover_tests(veb64_test)
