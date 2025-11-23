@@ -23,7 +23,9 @@
 
 #include "stopwatch.hpp"
 #include "veb24.hpp"
+#include "veb32.hpp"
 #include "veb48.hpp"
+#include "veb64.hpp"
 
 namespace
 {
@@ -51,7 +53,9 @@ namespace
     enum class KeyMode
     {
         Bits24,
-        Bits48
+        Bits32,
+        Bits48,
+        Bits64
     };
 
     struct BenchmarkOptions
@@ -122,7 +126,7 @@ namespace
     {
         std::cerr << "Usage: veb_benchmark "
                      "[--distribution=uniform|exponential|zipfian] "
-                     "[--bits=24|48] "
+                     "[--bits=24|32|48|64] "
                      "[--skew=value] [--num_inserts=N]\n";
     }
 
@@ -145,8 +149,14 @@ namespace
         if (value == "24") {
             return KeyMode::Bits24;
         }
+        if (value == "32") {
+            return KeyMode::Bits32;
+        }
         if (value == "48") {
             return KeyMode::Bits48;
+        }
+        if (value == "64") {
+            return KeyMode::Bits64;
         }
         throw std::runtime_error("unknown bit width: " + std::string(value));
     }
@@ -419,11 +429,19 @@ int main(int argc, char **argv)
     quill::start();
     quill::preallocate();
 
-    if (options.key_mode == KeyMode::Bits48) {
-        run_benchmark_for_tree<VebTree48, 48>(options);
-    }
-    else {
+    switch (options.key_mode) {
+    case KeyMode::Bits24:
         run_benchmark_for_tree<VebTree24, 24>(options);
+        break;
+    case KeyMode::Bits32:
+        run_benchmark_for_tree<VebTree32, 32>(options);
+        break;
+    case KeyMode::Bits48:
+        run_benchmark_for_tree<VebTree48, 48>(options);
+        break;
+    case KeyMode::Bits64:
+        run_benchmark_for_tree<VebTree64, 64>(options);
+        break;
     }
     return 0;
 }

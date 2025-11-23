@@ -58,7 +58,7 @@ public:
 
     [[nodiscard]] inline std::optional<Key> successor(Key x) const noexcept
     {
-        if (x >= 63) {
+        if (x == 63) {
             return std::nullopt;
         }
         uint64_t mask = bits & (~0ull << (x + 1));
@@ -73,13 +73,7 @@ public:
         if (x == 0) {
             return std::nullopt;
         }
-        uint64_t mask;
-        if (x == 64) {
-            mask = bits;
-        }
-        else {
-            mask = bits & ((uint64_t(1) << x) - 1);
-        }
+        uint64_t mask = bits & ((uint64_t(1) << x) - 1);
         if (!mask) {
             return std::nullopt;
         }

@@ -6,6 +6,7 @@
 #include <utility>
 
 #include "veb_leaf6.hpp"
+#include "veb_leaf8.hpp"
 
 template <unsigned Bits, bool Sparse>
 class VebBranch;
@@ -73,8 +74,19 @@ namespace veb_detail
         static constexpr bool CHILD_SPARSE =
             default_sparse_storage<CHILD_BITS>();
 
-        using type = std::conditional_t<
-            CHILD_BITS == 6, VebLeaf6, VebBranch<CHILD_BITS, CHILD_SPARSE>>;
+        using type = VebBranch<CHILD_BITS, CHILD_SPARSE>;
+    };
+
+    template <bool Sparse>
+    struct ChildSelector<12, Sparse>
+    {
+        using type = VebLeaf6;
+    };
+
+    template <bool Sparse>
+    struct ChildSelector<16, Sparse>
+    {
+        using type = VebLeaf8;
     };
 
 } // namespace veb_detail

@@ -36,7 +36,6 @@ class VebBranch<Bits, true>
 
 public:
     using Key = typename veb_detail::key_type_for_bits<Bits>::type;
-    using KeyType = Key;
     static constexpr unsigned SUBTREE_BITS = Bits;
     static constexpr Key MAX_KEY = [] {
         if constexpr (Bits == 64) {

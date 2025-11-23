@@ -108,10 +108,11 @@ TEST(Leaf6Test, PredecessorReturnsLargestSmallerValue)
 TEST(Leaf6Test, PredecessorHandlesUpperBound)
 {
     VebLeaf6 leaf;
+    auto const max_key = VebLeaf6::MAX_KEY;
     leaf.insert(0);
     leaf.insert(17);
-    leaf.insert(255);
+    leaf.insert(max_key);
 
-    ASSERT_TRUE(leaf.predecessor(255).has_value());
-    EXPECT_EQ(17u, *leaf.predecessor(255));
+    ASSERT_TRUE(leaf.predecessor(max_key).has_value());
+    EXPECT_EQ(17u, *leaf.predecessor(max_key));
 }

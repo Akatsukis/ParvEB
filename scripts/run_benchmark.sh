@@ -21,6 +21,14 @@ if [[ ! -x "$BENCH_BIN" ]]; then
     exit 1
 fi
 
+case "$BITS_OPTION" in
+    24|32|48|64) ;;
+    *)
+        echo "Unsupported PARVEB_BENCH_BITS value '$BITS_OPTION' (expected 24|32|48|64)" >&2
+        exit 1
+        ;;
+esac
+
 COMMIT_HASH="$(git -C "$REPO_ROOT" rev-parse --short HEAD)"
 TIMESTAMP_UTC="$(date -u +"%Y%m%d_%H%M%S")"
 LOG_FILE="$LOG_DIR/benchmark_${TIMESTAMP_UTC}_${COMMIT_HASH}.log"
