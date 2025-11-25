@@ -282,7 +282,6 @@ public:
     }
 
 private:
-    static constexpr uint64_t CLUSTER_COUNT = uint64_t{1} << CLUSTER_BITS;
     static constexpr Key CHILD_MASK = (Key(1) << CLUSTER_BITS) - 1;
 
     [[nodiscard]] static ClusterKey hi_part(Key key) noexcept

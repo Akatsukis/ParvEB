@@ -14,8 +14,53 @@ class VebBranch;
 namespace veb_detail
 {
 
+    template <unsigned FanBits, bool Small = (FanBits <= 6)>
+    class DenseBitset;
+
+    // Fast path for fanout <= 64 (single 64-bit mask).
     template <unsigned FanBits>
-    class DenseBitset
+    class DenseBitset<FanBits, true>
+    {
+        static_assert(FanBits > 0 && FanBits <= 6);
+        static constexpr unsigned FANOUT = 1u << FanBits;
+        using word_t = typename decltype([] {
+            if constexpr (FanBits <= 3) {
+                return std::type_identity<uint8_t>{};
+            }
+            else if constexpr (FanBits <= 4) {
+                return std::type_identity<uint16_t>{};
+            }
+            else if constexpr (FanBits <= 5) {
+                return std::type_identity<uint32_t>{};
+            }
+            else {
+                return std::type_identity<uint64_t>{};
+            }
+        }())::type;
+
+    public:
+        [[nodiscard]] bool test(unsigned idx) const noexcept
+        {
+            return idx < FANOUT && (bits_ & (word_t{1} << idx));
+        }
+
+        void set(unsigned idx) noexcept
+        {
+            bits_ |= (word_t{1} << idx);
+        }
+
+        void reset(unsigned idx) noexcept
+        {
+            bits_ &= ~(word_t{1} << idx);
+        }
+
+    private:
+        word_t bits_{0};
+    };
+
+    // General case: bitset over an array of 64-bit words.
+    template <unsigned FanBits>
+    class DenseBitset<FanBits, false>
     {
         static_assert(FanBits > 0);
         static constexpr unsigned WORD_BITS = 64;
@@ -24,7 +69,7 @@ namespace veb_detail
             (FANOUT + WORD_BITS - 1) / WORD_BITS;
 
     public:
-        bool test(unsigned idx) const noexcept
+        [[nodiscard]] bool test(unsigned idx) const noexcept
         {
             if (idx >= FANOUT) {
                 return false;
@@ -64,7 +109,28 @@ namespace veb_detail
     template <unsigned Bits>
     struct key_type_for_bits
     {
-        using type = std::conditional_t<(Bits <= 32), uint32_t, uint64_t>;
+    private:
+        template <unsigned B>
+        static consteval auto select_key()
+        {
+            static_assert(
+                B <= 64, "key type selection only supports up to 64 bits");
+            if constexpr (B <= 8) {
+                return std::type_identity<uint8_t>{};
+            }
+            else if constexpr (B <= 16) {
+                return std::type_identity<uint16_t>{};
+            }
+            else if constexpr (B <= 32) {
+                return std::type_identity<uint32_t>{};
+            }
+            else {
+                return std::type_identity<uint64_t>{};
+            }
+        }
+
+    public:
+        using type = typename decltype(select_key<Bits>())::type;
     };
 
     template <unsigned Bits, bool Sparse>

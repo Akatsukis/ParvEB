@@ -25,6 +25,7 @@ class VebBranch<Bits, false>
     using Summary = Child;
     using DenseMask = veb_detail::DenseBitset<CLUSTER_BITS>;
     using ChildPtr = std::unique_ptr<Child>;
+    static constexpr bool INLINE_CHILDREN = (Bits <= 16);
 
 public:
     using Key = typename veb_detail::key_type_for_bits<Bits>::type;
@@ -91,14 +92,15 @@ public:
             summary_erase(hi);
             return;
         }
-        auto &ptr = clusters_[hi];
-        if (!ptr) {
-            return;
-        }
-        ptr->erase(lo);
-        if (ptr->empty()) {
-            ptr.reset();
-            summary_erase(hi);
+        if (auto *ptr = cluster_ptr(hi)) {
+            ptr->erase(lo);
+            if (ptr->empty()) {
+                if constexpr (!INLINE_CHILDREN) {
+                    clusters_[hi].reset();
+                }
+                cluster_mask_.reset(hi);
+                summary_erase(hi);
+            }
         }
     }
 
@@ -112,8 +114,10 @@ public:
         if (inline_mask_.test(hi)) {
             return inline_value_[hi] == lo;
         }
-        auto const &ptr = clusters_[hi];
-        return ptr && ptr->contains(lo);
+        if (auto const *ptr = cluster_ptr(hi)) {
+            return ptr->contains(lo);
+        }
+        return false;
     }
 
     [[nodiscard]] std::optional<Key> min() const noexcept
@@ -129,7 +133,7 @@ public:
         if (inline_mask_.test(idx)) {
             return combine(idx, inline_value_[idx]);
         }
-        auto const &ptr = clusters_[idx];
+        auto const *ptr = cluster_ptr(idx);
         if (!ptr) {
             return std::nullopt;
         }
@@ -153,7 +157,7 @@ public:
         if (inline_mask_.test(idx)) {
             return combine(idx, inline_value_[idx]);
         }
-        auto const &ptr = clusters_[idx];
+        auto const *ptr = cluster_ptr(idx);
         if (!ptr) {
             return std::nullopt;
         }
@@ -180,7 +184,7 @@ public:
                     return combine(hi, inline_value_[hi]);
                 }
             }
-            else if (auto const &ptr = clusters_[hi]) {
+            else if (auto const *ptr = cluster_ptr(hi)) {
                 if (auto s = ptr->successor(lo)) {
                     return combine(hi, static_cast<ChildKey>(*s));
                 }
@@ -194,7 +198,7 @@ public:
         if (inline_mask_.test(idx)) {
             return combine(idx, inline_value_[idx]);
         }
-        auto lo_min = clusters_[idx]->min();
+        auto lo_min = cluster_ptr(idx)->min();
         if (!lo_min) {
             return std::nullopt;
         }
@@ -218,7 +222,7 @@ public:
                     return combine(hi, inline_value_[hi]);
                 }
             }
-            else if (auto const &ptr = clusters_[hi]) {
+            else if (auto const *ptr = cluster_ptr(hi)) {
                 if (auto p = ptr->predecessor(limit)) {
                     return combine(hi, static_cast<ChildKey>(*p));
                 }
@@ -233,7 +237,7 @@ public:
         if (inline_mask_.test(idx)) {
             return combine(idx, inline_value_[idx]);
         }
-        auto lo_max = clusters_[idx]->max();
+        auto lo_max = cluster_ptr(idx)->max();
         if (!lo_max) {
             return std::nullopt;
         }
@@ -252,8 +256,8 @@ public:
             if (inline_mask_.test(hi)) {
                 fn(child_prefix | inline_value_[hi]);
             }
-            else if (clusters_[hi]) {
-                clusters_[hi]->for_each(child_prefix, fn);
+            else if (auto const *ptr = cluster_ptr(hi)) {
+                ptr->for_each(child_prefix, fn);
             }
         });
     }
@@ -329,20 +333,51 @@ private:
 
     [[nodiscard]] bool cluster_active(unsigned idx) const noexcept
     {
-        return inline_mask_.test(idx) || clusters_[idx] != nullptr;
+        return inline_mask_.test(idx) || cluster_mask_.test(idx);
     }
 
     [[nodiscard]] Child &ensure_cluster(unsigned idx)
     {
-        auto &ptr = clusters_[idx];
-        if (!ptr) {
-            ptr = std::make_unique<Child>();
+        if constexpr (INLINE_CHILDREN) {
+            cluster_mask_.set(idx);
+            return clusters_[idx];
         }
-        return *ptr;
+        else {
+            auto &ptr = clusters_[idx];
+            if (!ptr) {
+                ptr = std::make_unique<Child>();
+                cluster_mask_.set(idx);
+            }
+            return *ptr;
+        }
+    }
+
+    [[nodiscard]] Child *cluster_ptr(unsigned idx) noexcept
+    {
+        if constexpr (INLINE_CHILDREN) {
+            return cluster_mask_.test(idx) ? &clusters_[idx] : nullptr;
+        }
+        else {
+            return clusters_[idx].get();
+        }
+    }
+
+    [[nodiscard]] Child const *cluster_ptr(unsigned idx) const noexcept
+    {
+        if constexpr (INLINE_CHILDREN) {
+            return cluster_mask_.test(idx) ? &clusters_[idx] : nullptr;
+        }
+        else {
+            return clusters_[idx].get();
+        }
     }
 
     DenseMask inline_mask_{};
+    DenseMask cluster_mask_{};
     std::array<ChildKey, CLUSTER_COUNT> inline_value_{};
-    std::array<ChildPtr, CLUSTER_COUNT> clusters_{};
+    std::conditional_t<INLINE_CHILDREN,
+        std::array<Child, CLUSTER_COUNT>,
+        std::array<ChildPtr, CLUSTER_COUNT>>
+        clusters_{};
     std::unique_ptr<Summary> summary_{};
 };
