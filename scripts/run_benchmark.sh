@@ -63,21 +63,34 @@ run_benchmark_case() {
 }
 
 bits_arg_present=false
+other_args=()
 for arg in "$@"; do
     if [[ "$arg" == --bits=* ]]; then
         bits_arg_present=true
-        break
+    else
+        other_args+=("$arg")
     fi
 done
 
 if [[ $# -gt 0 ]]; then
-    if [[ "$bits_arg_present" == false ]]; then
-        run_benchmark_case "$@" --bits="$BITS_OPTION"
+    # If caller only provided a bits override, still run the full distribution suite.
+    if [[ ${#other_args[@]} -eq 0 ]]; then
+        # Use provided bits if present, otherwise default.
+        for arg in "$@"; do
+            if [[ "$arg" == --bits=* ]]; then
+                BITS_OPTION="${arg#--bits=}"
+                break
+            fi
+        done
     else
-        run_benchmark_case "$@"
+        if [[ "$bits_arg_present" == false ]]; then
+            run_benchmark_case "$@" --bits="$BITS_OPTION"
+        else
+            run_benchmark_case "$@"
+        fi
+        echo "Benchmark output saved to $LOG_FILE"
+        exit 0
     fi
-    echo "Benchmark output saved to $LOG_FILE"
-    exit 0
 fi
 
 run_benchmark_case --distribution=uniform --skew=1.0 --bits="$BITS_OPTION"

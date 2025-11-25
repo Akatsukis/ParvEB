@@ -43,3 +43,7 @@ add_executable(veb_benchmark src/veb_benchmark.cpp)
 target_include_directories(veb_benchmark PRIVATE include)
 target_link_libraries(veb_benchmark PRIVATE parveb quill::quill absl_headers boost_headers)
 target_compile_definitions(veb_benchmark PRIVATE QUILL_ROOT_LOGGER_ONLY)
+
+add_executable(run_veb src/run_veb.cpp)
+target_include_directories(run_veb PRIVATE include)
+target_link_libraries(run_veb PRIVATE parveb)

@@ -6,11 +6,13 @@
 #include <limits>
 #include <numeric>
 #include <random>
+#include <stdexcept>
 #include <string>
 #include <string_view>
-#include <stdexcept>
 #include <vector>
 
+#include "veb24.hpp"
+#include "veb32.hpp"
 #include "veb48.hpp"
 #include "veb64.hpp"
 
@@ -27,8 +29,8 @@ namespace
 
     void print_usage()
     {
-        std::cerr
-            << "Usage: run_veb [--num_inserts=N] [--trials=T] [--seed=S] [--bits=48|64]\n";
+        std::cerr << "Usage: run_veb [--num_inserts=N] [--trials=T] [--seed=S] "
+                     "[--bits=24|32|48|64]\n";
     }
 
     RunOptions parse_options(int argc, char **argv)
@@ -41,20 +43,30 @@ namespace
                 std::exit(0);
             }
             if (arg.rfind("--num_inserts=", 0) == 0) {
-                std::string value(arg.substr(std::string_view("--num_inserts=").size()));
+                std::string value(
+                    arg.substr(std::string_view("--num_inserts=").size()));
                 opts.num_inserts = std::stoull(value);
             }
             else if (arg.rfind("--trials=", 0) == 0) {
-                std::string value(arg.substr(std::string_view("--trials=").size()));
+                std::string value(
+                    arg.substr(std::string_view("--trials=").size()));
                 opts.trials = std::stoi(value);
             }
             else if (arg.rfind("--seed=", 0) == 0) {
-                std::string value(arg.substr(std::string_view("--seed=").size()));
+                std::string value(
+                    arg.substr(std::string_view("--seed=").size()));
                 opts.seed = std::stoull(value);
             }
             else if (arg.rfind("--bits=", 0) == 0) {
-                std::string value(arg.substr(std::string_view("--bits=").size()));
-                if (value == "48") {
+                std::string value(
+                    arg.substr(std::string_view("--bits=").size()));
+                if (value == "24") {
+                    opts.bits = 24;
+                }
+                else if (value == "32") {
+                    opts.bits = 32;
+                }
+                else if (value == "48") {
                     opts.bits = 48;
                 }
                 else if (value == "64") {
@@ -65,7 +77,8 @@ namespace
                 }
             }
             else {
-                throw std::invalid_argument("Unknown argument: " + std::string(arg));
+                throw std::invalid_argument(
+                    "Unknown argument: " + std::string(arg));
             }
         }
 
@@ -76,13 +89,16 @@ namespace
             throw std::invalid_argument("num_inserts must be positive");
         }
         if (opts.num_inserts > std::numeric_limits<std::size_t>::max()) {
-            throw std::invalid_argument("num_inserts exceeds available memory on this platform");
+            throw std::invalid_argument(
+                "num_inserts exceeds available memory on this platform");
         }
         if (opts.num_inserts > std::numeric_limits<std::uint32_t>::max()) {
-            throw std::invalid_argument("num_inserts must fit in 32-bit buffer");
+            throw std::invalid_argument(
+                "num_inserts must fit in 32-bit buffer");
         }
-        if (opts.bits != 48 && opts.bits != 64) {
-            throw std::invalid_argument("bits must be 48 or 64");
+        if (opts.bits != 24 && opts.bits != 32 && opts.bits != 48 &&
+            opts.bits != 64) {
+            throw std::invalid_argument("bits must be 24, 32, 48 or 64");
         }
 
         return opts;
@@ -90,11 +106,14 @@ namespace
 
     double seconds_between(auto start, auto end)
     {
-        return std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count();
+        return std::chrono::duration_cast<std::chrono::duration<double>>(
+                   end - start)
+            .count();
     }
 
     template <class Tree, class KeyT>
-    void run_trials(Tree &&, int trials, std::vector<KeyT> const &keys, double gen_secs)
+    void run_trials(
+        Tree &&, int trials, std::vector<KeyT> const &keys, double gen_secs)
     {
         for (int trial = 1; trial <= trials; ++trial) {
             std::cout << "\nTrial " << trial << "/" << trials << "\n";
@@ -110,7 +129,8 @@ namespace
 
             double insert_secs = seconds_between(insert_start, insert_end);
 
-            std::cout << "insert=" << insert_secs << "s (generate once: " << gen_secs << "s)\n";
+            std::cout << "insert=" << insert_secs
+                      << "s (generate once: " << gen_secs << "s)\n";
 
             if (!min_key || !max_key) {
                 std::cerr << "Warning: tree is empty after insertions\n";
@@ -133,16 +153,50 @@ int main(int argc, char **argv)
     }
 
     std::cout << "vEB insert benchmark\n";
-    std::cout << "num_inserts=" << opts.num_inserts << " trials=" << opts.trials << "\n";
-    std::cout << "seed=" << opts.seed << " (uniform draw reused across trials)\n";
+    std::cout << "num_inserts=" << opts.num_inserts << " trials=" << opts.trials
+              << "\n";
+    std::cout << "seed=" << opts.seed
+              << " (uniform draw reused across trials)\n";
     std::cout << "bits=" << opts.bits << "\n";
     std::cout << std::fixed << std::setprecision(3);
 
     std::mt19937_64 rng(opts.seed);
     auto gen_start = std::chrono::steady_clock::now();
-    if (opts.bits == 48) {
-        std::uniform_int_distribution<VebTree48::Key> dist(0, VebTree48::MAX_KEY);
-        std::vector<VebTree48::Key> keys(static_cast<std::size_t>(opts.num_inserts));
+
+    switch (opts.bits) {
+    case 24: {
+        std::uniform_int_distribution<VebTree24::Key> dist(
+            0, VebTree24::MAX_KEY);
+        std::vector<VebTree24::Key> keys(
+            static_cast<std::size_t>(opts.num_inserts));
+        for (auto &k : keys) {
+            k = dist(rng);
+        }
+        auto gen_end = std::chrono::steady_clock::now();
+        double gen_secs = seconds_between(gen_start, gen_end);
+        std::cout << "generate_uniform=" << gen_secs << "s\n";
+        run_trials(VebTree24{}, opts.trials, keys, gen_secs);
+        break;
+    }
+    case 32: {
+        std::uniform_int_distribution<VebTree32::Key> dist(
+            0, VebTree32::MAX_KEY);
+        std::vector<VebTree32::Key> keys(
+            static_cast<std::size_t>(opts.num_inserts));
+        for (auto &k : keys) {
+            k = dist(rng);
+        }
+        auto gen_end = std::chrono::steady_clock::now();
+        double gen_secs = seconds_between(gen_start, gen_end);
+        std::cout << "generate_uniform=" << gen_secs << "s\n";
+        run_trials(VebTree32{}, opts.trials, keys, gen_secs);
+        break;
+    }
+    case 48: {
+        std::uniform_int_distribution<VebTree48::Key> dist(
+            0, VebTree48::MAX_KEY);
+        std::vector<VebTree48::Key> keys(
+            static_cast<std::size_t>(opts.num_inserts));
         for (auto &k : keys) {
             k = dist(rng);
         }
@@ -150,10 +204,13 @@ int main(int argc, char **argv)
         double gen_secs = seconds_between(gen_start, gen_end);
         std::cout << "generate_uniform=" << gen_secs << "s\n";
         run_trials(VebTree48{}, opts.trials, keys, gen_secs);
+        break;
     }
-    else {
-        std::uniform_int_distribution<VebTree64::Key> dist(0, VebTree64::MAX_KEY);
-        std::vector<VebTree64::Key> keys(static_cast<std::size_t>(opts.num_inserts));
+    case 64: {
+        std::uniform_int_distribution<VebTree64::Key> dist(
+            0, VebTree64::MAX_KEY);
+        std::vector<VebTree64::Key> keys(
+            static_cast<std::size_t>(opts.num_inserts));
         for (auto &k : keys) {
             k = dist(rng);
         }
@@ -161,6 +218,11 @@ int main(int argc, char **argv)
         double gen_secs = seconds_between(gen_start, gen_end);
         std::cout << "generate_uniform=" << gen_secs << "s\n";
         run_trials(VebTree64{}, opts.trials, keys, gen_secs);
+        break;
+    }
+    default:
+        std::cerr << "Unsupported bits value\n";
+        return 1;
     }
 
     return 0;

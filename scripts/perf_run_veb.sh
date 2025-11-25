@@ -12,12 +12,11 @@ NUM_INSERTS="${PARVEB_RUN_INSERTS:-${PARVEB_RUN_KEYS:-10000000}}"
 TRIALS="${PARVEB_RUN_TRIALS:-5}"
 SEED="${PARVEB_RUN_SEED:-0}"
 BITS="${PARVEB_RUN_BITS:-48}"
+PERF_OUTPUT="${PERF_OUTPUT:-$LOG_DIR/perf.data}"
+PERF_FREQ="${PERF_FREQ:-4000}"
+PERF_RECORD_ARGS="${PERF_RECORD_ARGS:-}"
 BUILD_TYPE="${PARVEB_BUILD_TYPE:-RelWithDebInfo}"
 DEBUG_FLAGS="${PARVEB_DEBUG_FLAGS:--g -fno-omit-frame-pointer}"
-PERF_EVENTS="${PERF_EVENTS:-cycles,instructions,branch-misses,cache-misses,L1-dcache-load-misses,dTLB-load-misses,LLC-load-misses}"
-PERF_OUTPUT="${PERF_OUTPUT:-$LOG_DIR/perf_stat.txt}"
-# Default to process-local stat; override if needed (e.g. -a or -C <cpu>).
-PERF_STAT_ARGS="${PERF_STAT_ARGS:-}"
 BIND_CPU="${PARVEB_CPU:-}"
 BIND_MEMNODE="${PARVEB_MEMNODE:-}"
 
@@ -45,20 +44,14 @@ if [[ ! -x "$RUN_BIN" ]]; then
     exit 1
 fi
 
-echo "Collecting perf stat to $PERF_OUTPUT"
-{
-    echo "# perf stat"
-    echo "timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-    echo "simd=$SIMD_OPTION"
-    echo "build_type=$BUILD_TYPE"
-    echo "events=$PERF_EVENTS"
-    echo "num_inserts=$NUM_INSERTS"
-    echo "trials=$TRIALS"
-    echo "seed=$SEED"
-    echo "bits=$BITS"
-    echo
-    perf stat -e "$PERF_EVENTS" $PERF_STAT_ARGS \
-        "${RUN_PREFIX[@]}" "$RUN_BIN" --num_inserts="$NUM_INSERTS" --trials="$TRIALS" --seed="$SEED" --bits="$BITS" "$@"
-} 2>&1 | tee "$PERF_OUTPUT"
+echo "Recording perf with dwarf call graph to $PERF_OUTPUT"
+perf record --call-graph=dwarf -F "$PERF_FREQ" -o "$PERF_OUTPUT" $PERF_RECORD_ARGS \
+    -- "${RUN_PREFIX[@]}" "$RUN_BIN" --num_inserts="$NUM_INSERTS" --trials="$TRIALS" --seed="$SEED" --bits="$BITS" "$@"
 
-echo "Perf stat saved to $PERF_OUTPUT"
+if [[ "${PERF_REPORT:-0}" == "1" ]]; then
+    REPORT_FILE="$LOG_DIR/perf_report.txt"
+    perf report --stdio --input="$PERF_OUTPUT" --call-graph --no-children >"$REPORT_FILE"
+    echo "Perf report written to $REPORT_FILE"
+fi
+
+echo "Perf data recorded at $PERF_OUTPUT"

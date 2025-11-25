@@ -41,7 +41,8 @@ namespace veb_detail
     public:
         [[nodiscard]] bool test(unsigned idx) const noexcept
         {
-            return idx < FANOUT && (bits_ & (word_t{1} << idx));
+            assert(idx < FANOUT);
+            return (bits_ & (word_t{1} << idx));
         }
 
         void set(unsigned idx) noexcept
@@ -71,9 +72,7 @@ namespace veb_detail
     public:
         [[nodiscard]] bool test(unsigned idx) const noexcept
         {
-            if (idx >= FANOUT) {
-                return false;
-            }
+            assert(idx < FANOUT);
             auto [word_idx, mask] = locate(idx);
             return (words_[word_idx] & mask) != 0;
         }

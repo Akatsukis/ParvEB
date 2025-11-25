@@ -375,8 +375,8 @@ private:
     DenseMask inline_mask_{};
     DenseMask cluster_mask_{};
     std::array<ChildKey, CLUSTER_COUNT> inline_value_{};
-    std::conditional_t<INLINE_CHILDREN,
-        std::array<Child, CLUSTER_COUNT>,
+    std::conditional_t<
+        INLINE_CHILDREN, std::array<Child, CLUSTER_COUNT>,
         std::array<ChildPtr, CLUSTER_COUNT>>
         clusters_{};
     std::unique_ptr<Summary> summary_{};
